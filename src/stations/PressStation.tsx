@@ -245,6 +245,7 @@ const BLANK_MISMATCHES = new Set([
   "mismatch.wrong_size",
   "mismatch.wrong_color",
   "mismatch.wrong_design",
+  "mismatch.wrong_style",
   "mismatch.unknown_blank",
   "local.wrong_blank",
 ]);

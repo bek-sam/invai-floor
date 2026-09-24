@@ -117,6 +117,7 @@ export const es: FloorStrings = {
     unknown_transfer: "Transferencia desconocida",
     unknown_blank: "Etiqueta de prenda desconocida",
     wrong_design: "Diseño equivocado",
+    wrong_style: "Estilo de prenda equivocado",
     wrong_size: "Talla equivocada",
     wrong_color: "Color equivocado",
     wrong_order: "Pedido equivocado",

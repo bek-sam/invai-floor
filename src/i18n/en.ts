@@ -115,6 +115,7 @@ export const en = {
     unknown_transfer: "Unknown transfer",
     unknown_blank: "Unknown blank label",
     wrong_design: "Wrong design",
+    wrong_style: "Wrong style",
     wrong_size: "Wrong size",
     wrong_color: "Wrong color",
     wrong_order: "Wrong order",

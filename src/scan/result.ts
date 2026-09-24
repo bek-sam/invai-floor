@@ -95,7 +95,7 @@ export function localPressCheck(
   const scanned = knownBlanks.find((b) => b.variantId === code.value) ?? null;
   let reason: MismatchReason | "wrong_blank" = "wrong_blank";
   if (scanned) {
-    if (scanned.style !== preview.blank.style) reason = "wrong_blank";
+    if (scanned.style !== preview.blank.style) reason = "wrong_style";
     else if (scanned.color !== preview.blank.color) reason = "wrong_color";
     else if (scanned.size !== preview.blank.size) reason = "wrong_size";
   }
