@@ -6,15 +6,41 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: invai-floor
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: invai-floor
+      # Private sibling repo linked via link:../invai-contracts. Needs secret INVAI_READ_TOKEN
+      # (fine-grained token, read-only Contents on the invai-* repos).
+      - uses: actions/checkout@v4
+        with:
+          repository: bek-sam/invai-contracts
+          path: invai-contracts
+          token: ${{ secrets.INVAI_READ_TOKEN }}
+      # Private sibling repo linked via link:../invai-ui. Needs secret INVAI_READ_TOKEN
+      # (fine-grained token, read-only Contents on the invai-* repos).
+      - uses: actions/checkout@v4
+        with:
+          repository: bek-sam/invai-ui
+          path: invai-ui
+          token: ${{ secrets.INVAI_READ_TOKEN }}
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: invai-floor/package.json
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: invai-floor/.nvmrc
           cache: pnpm
+          cache-dependency-path: invai-floor/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: invai-contracts
+      - run: pnpm install --frozen-lockfile
+        working-directory: invai-ui
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test --if-present
+      - run: pnpm run --if-present test
       - run: pnpm build
