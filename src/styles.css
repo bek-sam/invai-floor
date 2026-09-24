@@ -1,1 +1,18 @@
 @import "@invai/ui/theme.css";
+@source "../../invai-ui/src";
+
+html,
+body,
+#root {
+  height: 100%;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
