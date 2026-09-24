@@ -1,18 +1,27 @@
-import { initI18n } from "@invai/ui";
+import { registerSW } from "virtual:pwa-register";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { startOutboxSync } from "./outbox/sync";
+import { bootstrap, engine } from "./app/actions";
+import { setupI18n } from "./i18n";
+import { unlockAudioOnGesture } from "./lib/feedback";
 import "./styles.css";
 
-void initI18n((localStorage.getItem("lang") as "en" | "es" | null) ?? "en");
-startOutboxSync();
+registerSW({ immediate: true });
+unlockAudioOnGesture();
 
-const root = document.getElementById("root");
-if (root) {
-  createRoot(root).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
+async function main() {
+  await setupI18n();
+  await bootstrap();
+  engine.start();
+  const root = document.getElementById("root");
+  if (root) {
+    createRoot(root).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+  }
 }
+
+void main();

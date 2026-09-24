@@ -7,3 +7,5 @@ dist/
 .turbo/
 coverage/
 .DS_Store
+e2e/.report/
+e2e/.results/

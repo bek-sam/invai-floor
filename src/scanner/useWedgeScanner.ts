@@ -1,35 +1,48 @@
 import { useEffect, useRef } from "react";
+import { emitScan, type ScanHandler, subscribeScans } from "./bus";
+import { WedgeDetector, type WedgeOptions } from "./wedge";
+
+function isEditable(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
 
 /**
- * USB/Bluetooth barcode scanners act as keyboards. A scan is a burst of keys arriving
- * less than `maxGapMs` apart and ending with Enter; people typing are much slower.
+ * Listens to the whole window for scanner bursts and forwards them to the scan bus. Mount
+ * once at the app root. Keys typed into text fields are left alone (those fields handle
+ * their own Enter). A detected scan swallows its Enter so it can't click a focused button.
  */
-export function useWedgeScanner(
-  onScan: (code: string) => void,
-  { maxGapMs = 30, minLength = 4 } = {},
-) {
-  const buffer = useRef("");
-  const lastAt = useRef(0);
-  const handler = useRef(onScan);
-  handler.current = onScan;
-
+export function useWedgeListener(options: WedgeOptions = {}) {
+  const { maxGapMs, maxEnterGapMs, minLength } = options;
   useEffect(() => {
+    const detector = new WedgeDetector({ maxGapMs, maxEnterGapMs, minLength });
     function onKeyDown(e: KeyboardEvent) {
-      const now = performance.now();
-      if (now - lastAt.current > maxGapMs) buffer.current = "";
-      lastAt.current = now;
-
-      if (e.key === "Enter") {
-        if (buffer.current.length >= minLength) {
-          e.preventDefault();
-          handler.current(buffer.current);
-        }
-        buffer.current = "";
+      if (isEditable(e.target)) {
+        detector.reset();
         return;
       }
-      if (e.key.length === 1 && !e.repeat) buffer.current += e.key;
+      const verdict = detector.key(e, performance.now());
+      if (verdict.type === "scan") {
+        e.preventDefault();
+        e.stopPropagation();
+        emitScan(verdict.code, "wedge");
+      } else if (verdict.type === "buffered" && e.key === " ") {
+        e.preventDefault(); // a space inside a scan must not press a focused button
+      }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [maxGapMs, minLength]);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [maxGapMs, maxEnterGapMs, minLength]);
+}
+
+/** Receive scans while this component is the top-most scan consumer. */
+export function useScan(onScan: ScanHandler, enabled = true) {
+  const handler = useRef(onScan);
+  handler.current = onScan;
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribeScans((code, source) => handler.current(code, source));
+  }, [enabled]);
 }
