@@ -12,7 +12,7 @@
     }
   },
   "files": {
-    "includes": ["src/**", "*.ts", "*.json"]
+    "includes": ["src/**", "e2e/**", "*.ts", "*.json", "!e2e/.report", "!e2e/.results"]
   },
   "css": {
     "parser": {

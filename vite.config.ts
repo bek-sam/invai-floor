@@ -40,6 +40,7 @@ export default defineConfig({
   },
   preview: { port: 5174, proxy: { "/rpc": api, "/events": api } },
   test: {
+    include: ["src/**/*.test.{ts,tsx}"], // e2e/*.spec.ts belongs to Playwright
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
   },

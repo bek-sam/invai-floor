@@ -5,6 +5,7 @@
   "description": "InvAI production-floor PWA for tablets with barcode scanners",
   "type": "module",
   "scripts": {
+    "e2e": "playwright test",
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "tsc --noEmit",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19",
