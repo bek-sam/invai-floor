@@ -59,10 +59,10 @@ export type SseOptions = {
 };
 
 /**
- * Server-Sent Events over fetch, not EventSource, because EventSource can't send the floor
- * session as an `Authorization: Bearer` header (and a `?token=` query string ends up in
- * proxy logs). Reconnects with exponential backoff and jitter, and resumes with
- * `Last-Event-ID`.
+ * Server-Sent Events over fetch (not EventSource) so reconnects are ours and every retry can
+ * send `Last-Event-ID`. The floor session goes in `?token=`, which the backend's /events
+ * accepts; it's also sent as `Authorization: Bearer` for servers that prefer the header.
+ * Reconnects with exponential backoff and jitter.
  */
 export function connectSse(opts: SseOptions): () => void {
   const fetchImpl = opts.fetchImpl ?? fetch.bind(globalThis);
@@ -81,10 +81,14 @@ export function connectSse(opts: SseOptions): () => void {
     controller = new AbortController();
     const headers: Record<string, string> = { Accept: "text/event-stream" };
     const token = opts.token();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    let url = opts.url;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      url += `${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+    }
     if (lastEventId) headers["Last-Event-ID"] = lastEventId;
     try {
-      const res = await fetchImpl(opts.url, {
+      const res = await fetchImpl(url, {
         headers,
         signal: controller.signal,
         cache: "no-store",

@@ -209,8 +209,8 @@ export function PressStation() {
                     {item.orderNo} <Badges item={item} />
                   </div>
                   <div className="truncate text-muted-foreground">{item.design.name}</div>
+                  <BlankChips blank={item.blank} className="mt-1 text-sm" />
                 </div>
-                <BlankChips blank={item.blank} className="text-sm" />
               </button>
             </li>
           ))}
@@ -240,6 +240,14 @@ export function PressStation() {
     </div>
   );
 }
+
+const BLANK_MISMATCHES = new Set([
+  "mismatch.wrong_size",
+  "mismatch.wrong_color",
+  "mismatch.wrong_design",
+  "mismatch.unknown_blank",
+  "local.wrong_blank",
+]);
 
 function TransferCard({ code, item }: { code: string; item: QueueItem | null }) {
   const { t } = useTranslation();
@@ -361,7 +369,7 @@ function PressResult({
         {view.queued && view.tone === "warn" && (
           <p className="mt-2 rounded-lg bg-black/10 px-4 py-2">{t("floor.press.queued")}</p>
         )}
-        {view.tone === "blocked" && !view.queued && (
+        {view.tone === "blocked" && !view.queued && BLANK_MISMATCHES.has(view.reasonKey ?? "") && (
           <p className="mt-2 opacity-90">{t("floor.press.rescan")}</p>
         )}
         {hint === "scan_next_transfer" && (

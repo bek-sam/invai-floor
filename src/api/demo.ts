@@ -139,7 +139,8 @@ function inQueue(station: Station, item: DemoItem, packedIntoBox: Set<string>): 
 
 const delay = (ms = 180) => new Promise((r) => setTimeout(r, ms));
 
-function svgDataUrl(label: string, color: string) {
+function svgDataUrl(raw: string, color: string) {
+  const label = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#f4f4f5"/><circle cx="100" cy="86" r="52" fill="${color}"/><text x="100" y="172" font-family="system-ui" font-size="18" font-weight="700" text-anchor="middle" fill="#111">${label}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -153,8 +154,10 @@ export function createDemoApi(): FloorApi {
   const doneToday: Record<Station, number> = { pick: 3, press: 12, qc: 9, pack: 6 };
   for (const i of items) if (i.binCode) bins.set(i.binCode, i.orderId);
 
+  // Demo tokens name the user, so a page reload (fresh in-memory backend) keeps the session.
   const auth = (token: string) => {
-    const user = sessions.get(token);
+    const user =
+      sessions.get(token) ?? STAFF.find((s) => token.startsWith(`demo-session-${s.id}-`));
     if (!user) throw new ApiFailure("auth", "UNAUTHORIZED", "Session expired", 401);
     return user;
   };

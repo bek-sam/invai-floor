@@ -175,8 +175,8 @@ export function QcStation() {
                   {item.orderNo} <Badges item={item} />
                 </div>
                 <div className="truncate text-muted-foreground">{item.design.name}</div>
+                <BlankChips blank={item.blank} className="mt-1 text-sm" />
               </div>
-              <BlankChips blank={item.blank} className="text-sm" />
             </li>
           ))}
         </ul>

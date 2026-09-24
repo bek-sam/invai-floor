@@ -6,7 +6,7 @@ export function LangToggle({ className }: { className?: string }) {
   const { i18n } = useTranslation();
   const lang = i18n.language === "es" ? "es" : "en";
   return (
-    <div className={cn("flex overflow-hidden rounded-lg border border-border", className)}>
+    <div className={cn("flex shrink-0 overflow-hidden rounded-lg border border-border", className)}>
       {(["en", "es"] as const).map((l) => (
         <button
           key={l}

@@ -26,9 +26,11 @@ function streamResponse(text: string) {
 }
 
 describe("connectSse", () => {
-  it("sends the bearer token, reconnects with Last-Event-ID and reports the reconnect", async () => {
+  it("sends the session as ?token= and Bearer, reconnects with Last-Event-ID and reports the reconnect", async () => {
     const calls: Record<string, string>[] = [];
-    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+    const urls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      urls.push(url);
       calls.push(init?.headers as Record<string, string>);
       if (calls.length === 1) return streamResponse("id: 42\nevent: item.pressed\ndata: {}\n\n");
       if (calls.length === 2) throw new TypeError("offline");
@@ -47,6 +49,7 @@ describe("connectSse", () => {
     });
     await vi.waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(3));
     stop();
+    expect(urls[0]).toBe("/events?token=sess");
     expect(calls[0]?.Authorization).toBe("Bearer sess");
     expect(calls[1]?.["Last-Event-ID"]).toBe("42");
     expect(messages[0]).toMatchObject({ event: "item.pressed", id: "42" });

@@ -15,7 +15,7 @@ export function SimulateScan() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t("floor.dev.simulate")}
-        className="fixed bottom-3 left-3 z-50 rounded-full bg-foreground/10 p-3 text-foreground/40 hover:text-foreground"
+        className="fixed right-3 bottom-14 z-50 rounded-full bg-foreground/10 p-3 text-foreground/40 hover:text-foreground"
       >
         <ScanLine className="size-5" />
       </button>
@@ -23,7 +23,7 @@ export function SimulateScan() {
   }
   return (
     <form
-      className="fixed bottom-3 left-3 z-50 flex gap-2 rounded-xl border border-border bg-card p-2 shadow-lg"
+      className="fixed right-3 bottom-14 z-50 flex gap-2 rounded-xl border border-border bg-card p-2 shadow-lg"
       onSubmit={(e) => {
         e.preventDefault();
         emitScan(code, "simulate");

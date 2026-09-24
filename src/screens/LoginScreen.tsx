@@ -105,7 +105,7 @@ export function LoginScreen() {
           </button>
         </div>
       </aside>
-      <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
+      <main className="flex flex-1 flex-col items-center justify-center gap-4 overflow-y-auto p-6 [&>*]:shrink-0">
         <div className="flex w-full max-w-md items-center justify-between">
           <h2 className="text-3xl font-bold">
             {busy ? t("floor.login.signingIn") : t("floor.login.title")}
@@ -128,7 +128,7 @@ export function LoginScreen() {
           onComplete={(v) => void submit(v)}
           disabled={busy}
           error={!!error}
-          className="[&_button]:size-24 [&_button]:text-4xl"
+          className="[&_button]:size-[5.25rem] [&_button]:text-4xl"
         />
         <BigButton
           className="max-w-[20.5rem]"
