@@ -1,0 +1,7 @@
+minimumReleaseAgeExclude:
+  - '@orpc/client@1.15.4'
+  - '@orpc/contract@1.15.4'
+  - '@orpc/shared@1.15.4'
+  - '@orpc/standard-server-fetch@1.15.4'
+  - '@orpc/standard-server-peer@1.15.4'
+  - '@orpc/standard-server@1.15.4'
