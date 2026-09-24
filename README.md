@@ -16,3 +16,8 @@ pnpm dev --open "/?demo=1"   # built-in demo backend, no server needed
 - **Offline:** every write goes to the Dexie outbox first (`src/outbox`), is sent in order and replayed on reconnect. Scans carry a `clientScanId`, so replays are idempotent. Offline press checks run against the cached queue and are marked provisional.
 - **Realtime:** fetch-based SSE on `/events?token=<floor session>` with backoff and `Last-Event-ID`.
 - **Dev:** the scan icon (bottom right, `pnpm dev` or `?dev=1`) simulates a scan. `?demo=1` or "Try a demo station" uses the in-memory backend in `src/api/demo.ts` (PINs 1111, 1122 … 1177).
+
+```
+pnpm typecheck && pnpm lint && pnpm test   # unit tests (Vitest)
+pnpm e2e                                   # Playwright, against a running stack
+```
