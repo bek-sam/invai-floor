@@ -23,6 +23,7 @@ import { PackStation } from "../stations/PackStation";
 import { PickStation } from "../stations/PickStation";
 import { PressStation } from "../stations/PressStation";
 import { QcStation } from "../stations/QcStation";
+import { ReceivingStation } from "../stations/receiving/ReceivingStation";
 
 const ICONS = {
   pick: Shirt,
@@ -102,6 +103,7 @@ export function StationShell() {
         {active === "pick" && <PickStation />}
         {active === "qc" && <QcStation />}
         {active === "pack" && <PackStation />}
+        {active === "receiving" && <ReceivingStation />}
       </main>
     </div>
   );

@@ -1,12 +1,14 @@
 import Dexie, { type Table } from "dexie";
 import type { QcInput, QueueItem, ReprintReason, ScanInput, Station } from "../api/types";
+import type { ReceivingCommand } from "../stations/receiving/commands";
 
 export type OutboxCommand =
   | { kind: "scan"; input: ScanInput }
   | { kind: "qc"; input: QcInput }
   | { kind: "assignBin"; code: string; orderId: string }
   | { kind: "releaseBin"; code: string }
-  | { kind: "reprint"; orderItemId: string; reason: ReprintReason; note: string | null };
+  | { kind: "reprint"; orderItemId: string; reason: ReprintReason; note: string | null }
+  | ReceivingCommand;
 
 export type OutboxStatus = "pending" | "done" | "failed";
 

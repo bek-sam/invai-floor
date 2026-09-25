@@ -14,6 +14,7 @@ import {
   type OutboxEntry,
 } from "../outbox/db";
 import { type SubmitOutcome, SyncEngine } from "../outbox/sync";
+import { sendReceiving } from "../stations/receiving/commands";
 import {
   type AppState,
   currentToken,
@@ -60,6 +61,8 @@ function sendCommand(command: OutboxCommand, token: string): Promise<unknown> {
       return api.releaseBin(token, command.code);
     case "reprint":
       return api.requestReprint(token, command.orderItemId, command.reason, command.note);
+    case "receiving":
+      return sendReceiving(command, token, api.kind);
   }
 }
 
