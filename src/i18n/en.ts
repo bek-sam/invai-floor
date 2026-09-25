@@ -55,6 +55,7 @@ export const en = {
     press: "Press",
     qc: "Quality check",
     pack: "Pack",
+    receiving: "Receiving",
     choose: "Choose a station",
   },
   common: {

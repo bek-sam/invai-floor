@@ -57,6 +57,7 @@ export const es: FloorStrings = {
     press: "Prensar",
     qc: "Control de calidad",
     pack: "Empacar",
+    receiving: "Recibir",
     choose: "Elige una estación",
   },
   common: {

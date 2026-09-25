@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
   StationHeader,
 } from "@invai/ui";
-import { Lock, Menu, Package, ScanLine, ShieldCheck, Shirt, Users } from "lucide-react";
+import { Lock, Menu, Package, ScanLine, ShieldCheck, Shirt, Truck, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { lock, setActiveStation, setAutoLockMinutes } from "../app/actions";
 import { useApp, useSession } from "../app/store";
@@ -24,7 +24,13 @@ import { PickStation } from "../stations/PickStation";
 import { PressStation } from "../stations/PressStation";
 import { QcStation } from "../stations/QcStation";
 
-const ICONS = { pick: Shirt, press: ScanLine, qc: ShieldCheck, pack: Package } as const;
+const ICONS = {
+  pick: Shirt,
+  press: ScanLine,
+  qc: ShieldCheck,
+  pack: Package,
+  receiving: Truck,
+} as const;
 
 export function StationShell() {
   const { t } = useTranslation();

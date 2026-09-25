@@ -134,6 +134,8 @@ function inQueue(station: Station, item: DemoItem, packedIntoBox: Set<string>): 
         (item.state === "pressed" || item.state === "packed") &&
         !packedIntoBox.has(item.orderItemId)
       );
+    case "receiving":
+      return false;
   }
 }
 
@@ -151,7 +153,7 @@ export function createDemoApi(): FloorApi {
   const sessions = new Map<string, (typeof STAFF)[number]>();
   const bins = new Map<string, string>(); // code -> orderId
   const boxed = new Set<string>();
-  const doneToday: Record<Station, number> = { pick: 3, press: 12, qc: 9, pack: 6 };
+  const doneToday: Record<Station, number> = { pick: 3, press: 12, qc: 9, pack: 6, receiving: 0 };
   for (const i of items) if (i.binCode) bins.set(i.binCode, i.orderId);
 
   // Demo tokens name the user, so a page reload (fresh in-memory backend) keeps the session.
