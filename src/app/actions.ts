@@ -135,6 +135,7 @@ async function afterOutboxChange() {
 
 /** Lead: put parked entries back in the queue as they were. */
 export async function retryEntries(ids: string[]) {
+  if (!isLead(useApp.getState().session)) return 0;
   const n = await retryParked(ids, currentSession());
   await afterOutboxChange();
   return n;

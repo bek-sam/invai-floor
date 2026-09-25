@@ -173,8 +173,12 @@ export class SyncEngine {
     if (mineEnded) this.opts.onAuthExpired?.();
     await this.refreshCounts();
 
-    // An ended sign-in is not a verdict on the unit, so it is listed but not alerted.
-    const rejected = report.parked.filter((e) => e.replay && e.parkReason !== "session");
+    // Only a server verdict on the unit ("set it aside") alerts. An ended sign-in or a server
+    // that never answered (gave_up) is listed in the problems sheet, not alerted: overload is
+    // not an error.
+    const rejected = report.parked.filter(
+      (e) => e.replay && (e.parkReason === "rejected" || e.parkReason === "blocked"),
+    );
     if (rejected.length > 0) {
       useSyncStore.setState((s) => ({ alerts: [...s.alerts, ...rejected] }));
       this.opts.onReplayRejected?.(rejected);

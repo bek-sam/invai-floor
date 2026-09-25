@@ -464,6 +464,29 @@ describe("sync engine", () => {
     engine.stop();
   });
 
+  it("a server that never answers (permanent 500) parks the entry without an alert", async () => {
+    let down = true;
+    const rejected: OutboxEntry[][] = [];
+    const engine = new SyncEngine({
+      send: async () => {
+        if (down) throw new ApiFailure("offline", "NETWORK", "offline");
+        throw new ApiFailure("unavailable", "INTERNAL_SERVER_ERROR", "boom", 500);
+      },
+      db,
+      currentSession: () => null,
+      onReplayRejected: (e) => rejected.push(e),
+    });
+    useSyncStore.setState({ alerts: [] });
+    await engine.submit(scan("T:1"), ana);
+    expect((await rows())[0]?.replay).toBe(true);
+    down = false;
+    for (let i = 0; i < MAX_ATTEMPTS; i++) await engine.flush();
+    expect((await rows())[0]).toMatchObject({ status: "parked", parkReason: "gave_up" });
+    expect(useSyncStore.getState()).toMatchObject({ parked: 1, alerts: [] });
+    expect(rejected).toEqual([]);
+    engine.stop();
+  });
+
   it("an online BLOCKED scan is a normal result, not an alert", async () => {
     const engine = new SyncEngine({
       send: async () => ({ ok: false, mismatch: "wrong_size" }),
