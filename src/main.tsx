@@ -3,11 +3,16 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { bootstrap, engine } from "./app/actions";
+import { reloadIfAsked, setUpdateReady } from "./components/UpdatePrompt";
 import { setupI18n } from "./i18n";
 import { unlockAudioOnGesture } from "./lib/feedback";
 import "./styles.css";
 
-registerSW({ immediate: true });
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh: () => setUpdateReady(() => void updateSW(true)),
+  onNeedReload: reloadIfAsked,
+});
 unlockAudioOnGesture();
 
 async function main() {

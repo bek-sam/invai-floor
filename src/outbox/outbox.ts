@@ -38,7 +38,9 @@ export const MAX_ATTEMPTS = 5;
 const KEEP_DONE_MS = 60 * 1000;
 
 export function commandId(command: OutboxCommand): string {
-  return command.kind === "scan" ? command.input.clientScanId : uuid();
+  if (command.kind === "scan") return command.input.clientScanId;
+  if (command.kind === "packOrder") return command.input.idempotencyKey;
+  return uuid();
 }
 
 /** Parked and the older `failed` status both mean "needs a lead". */
@@ -183,9 +185,15 @@ export async function flushOutbox(
   return report;
 }
 
-/** Only a scan replayed after being saved offline is parked for a BLOCKED result. */
+/** A scan or "Mark packed" saved offline that the server blocked on replay is parked. */
 function blockedReason(entry: OutboxEntry, result: unknown): string | null {
-  if (!entry.replay || entry.command.kind !== "scan") return null;
+  if (!entry.replay) return null;
+  if (entry.command.kind === "packOrder") {
+    // "Mark packed" saved offline, and the server found units missing: a lead must see it.
+    const p = result as { packed?: unknown; override?: unknown } | null;
+    return p?.packed === false && !p.override ? "pack_incomplete" : null;
+  }
+  if (entry.command.kind !== "scan") return null;
   const r = result as { ok?: unknown; mismatch?: unknown } | null;
   if (r?.ok !== false) return null;
   return typeof r.mismatch === "string" ? r.mismatch : "unknown";
@@ -224,7 +232,8 @@ export function sameAuthor(
 
 /** Non-scan commands have no idempotency key, so a replayed QC pass may hit "already packed". */
 function isAlreadyApplied(command: OutboxCommand, failure: ApiFailure): boolean {
-  if (command.kind === "scan") return false;
+  // packOrder has a real key: a CONFLICT (on hold, key reused) is a real refusal.
+  if (command.kind === "scan" || command.kind === "packOrder") return false;
   return failure.code === "INVALID_TRANSITION" || failure.code === "CONFLICT";
 }
 

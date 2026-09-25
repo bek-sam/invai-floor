@@ -16,7 +16,10 @@ export function deviceLang(): Lang {
 
 /** Shared strings come from @invai/ui; floor strings live under the `floor` key. */
 export async function setupI18n() {
-  await initI18n(deviceLang());
+  const lang = deviceLang();
+  // <html lang> follows the device language from the start (screen readers, hyphenation).
+  document.documentElement.lang = lang;
+  await initI18n(lang);
   i18n.addResourceBundle("en", "translation", { floor: en }, true, true);
   i18n.addResourceBundle("es", "translation", { floor: es }, true, true);
 }

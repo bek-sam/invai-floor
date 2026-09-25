@@ -10,8 +10,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["icon.svg"],
+      // Never reload by itself (a packer may be mid-order): a new version waits for a tap.
+      registerType: "prompt",
+      includeAssets: ["icon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "InvAI Floor",
         short_name: "Floor",
@@ -20,7 +21,17 @@ export default defineConfig({
         start_url: "/",
         theme_color: "#1f2a44",
         background_color: "#1f2a44",
-        icons: [{ src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
+        icons: [
+          { src: "pwa-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "pwa-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          {
+            src: "pwa-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+        ],
       },
       workbox: {
         // App shell + hashed assets are precached; API calls and SSE always go to the network.

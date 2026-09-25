@@ -10,6 +10,7 @@ import { invalidateQueues, useStationQueue } from "../hooks/useStationQueue";
 import { parseCode } from "../lib/codes";
 import { feedback } from "../lib/feedback";
 import { uuid } from "../lib/uuid";
+import { refusalText } from "../scan/result";
 import { useScan } from "../scanner/useWedgeScanner";
 import { Badges, QueueFooter } from "./common";
 
@@ -68,7 +69,7 @@ export function PickStation() {
       const text = result?.mismatch
         ? t(`floor.mismatch.${result.mismatch}`)
         : outcome.status === "failed"
-          ? outcome.message
+          ? refusalText(t, outcome.entry.errorCode)
           : "";
       setView({ phase: "list", selected: group.key, message: { tone: "blocked", text } });
       return;
@@ -83,7 +84,7 @@ export function PickStation() {
     const outcome = await submit({ kind: "assignBin", code, orderId: item.orderId });
     if (outcome.status === "failed") {
       feedback("error");
-      setView({ phase: "done", item, bin: null, error: outcome.message });
+      setView({ phase: "done", item, bin: null, error: refusalText(t, outcome.entry.errorCode) });
       return;
     }
     feedback("ok");

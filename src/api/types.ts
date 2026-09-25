@@ -2,6 +2,8 @@ import type {
   Contract,
   MISMATCH_REASONS,
   NEXT_ACTIONS,
+  PackOrderInput,
+  PackOrderResult,
   QueueItem,
   REPRINT_REASONS,
   ScanInput,
@@ -13,7 +15,7 @@ import type { InferContractRouterInputs, InferContractRouterOutputs } from "@orp
 type Out = InferContractRouterOutputs<Contract>;
 type In = InferContractRouterInputs<Contract>;
 
-export type { QueueItem, ScanInput, ScanResult, Station };
+export type { PackOrderInput, PackOrderResult, QueueItem, ScanInput, ScanResult, Station };
 export type MismatchReason = (typeof MISMATCH_REASONS)[number];
 export type NextAction = (typeof NEXT_ACTIONS)[number];
 export type ReprintReason = (typeof REPRINT_REASONS)[number];
@@ -41,6 +43,11 @@ export interface FloorApi {
   qc(sessionToken: string, input: QcInput): Promise<{ reprintId: string | null }>;
   assignBin(sessionToken: string, code: string, orderId: string): Promise<Bin>;
   releaseBin(sessionToken: string, code: string): Promise<Bin>;
+  /**
+   * "Mark packed" (or, with `override`, hand a short order to a lead). A refusal because units
+   * are missing is a result (`packed: false`, `override: null`), like a BLOCKED scan, not an error.
+   */
+  packOrder(sessionToken: string, input: PackOrderInput): Promise<PackOrderResult>;
   /** A signed URL for an S3 key (artwork thumbnails, label PDFs). */
   fileUrl(sessionToken: string, key: string): Promise<string>;
   /** The printable label for an order, when one has been bought. */

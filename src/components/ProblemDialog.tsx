@@ -1,17 +1,12 @@
+import { REPRINT_REASONS } from "@invai/contracts";
 import { BigButton, Dialog, DialogContent, DialogTitle } from "@invai/ui";
 import { useTranslation } from "react-i18next";
 import type { ReprintReason } from "../api/types";
 import { useScan } from "../scanner/useWedgeScanner";
 
-/** The six floor reasons, mapped onto the contract's reprint reasons. */
-export const FLOOR_REASONS: { key: string; reason: ReprintReason; note: string | null }[] = [
-  { key: "misprint", reason: "misprint", note: null },
-  { key: "wrong_placement", reason: "wrong_placement", note: null },
-  { key: "stain", reason: "blank_damaged", note: "stain" },
-  { key: "peel", reason: "peel", note: null },
-  { key: "wrong_blank", reason: "wrong_blank", note: null },
-  { key: "other", reason: "other", note: null },
-];
+/** Every reprint reason the contract knows, in its order; the labels are floor.reason.<key>. */
+export const FLOOR_REASONS: { key: ReprintReason; reason: ReprintReason; note: string | null }[] =
+  REPRINT_REASONS.map((reason) => ({ key: reason, reason, note: null }));
 
 /** Big reason buttons; scans are swallowed while it is open so nothing happens underneath. */
 export function ReasonDialog({
@@ -29,14 +24,14 @@ export function ReasonDialog({
   useScan(() => {}, open);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl p-8">
+      <DialogContent className="max-w-5xl p-8">
         <DialogTitle className="text-3xl">{title}</DialogTitle>
-        <div className="mt-4 grid grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-4 gap-3">
           {FLOOR_REASONS.map((r) => (
             <BigButton
               key={r.key}
               variant="outline"
-              className="h-28 whitespace-normal"
+              className="h-24 whitespace-normal text-2xl leading-tight"
               onClick={() => onPick(r)}
             >
               {t(`floor.reason.${r.key}`)}

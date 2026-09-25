@@ -11,6 +11,7 @@ import { Thumbnail } from "../components/Thumbnail";
 import { invalidateQueues, useStationQueue } from "../hooks/useStationQueue";
 import { transferIdOf } from "../lib/codes";
 import { feedback } from "../lib/feedback";
+import { refusalText } from "../scan/result";
 import { useScan } from "../scanner/useWedgeScanner";
 import { Badges, BlankChips, Prompt, QueueFooter } from "./common";
 
@@ -79,10 +80,14 @@ export function QcStation() {
         reprintReason: reason?.reason,
         note: reason?.note ?? null,
       },
-    });
-    const error = outcome.status === "failed" ? outcome.message : null;
+    }).catch(() => null);
+    const error = !outcome
+      ? t("floor.error.local")
+      : outcome.status === "failed"
+        ? refusalText(t, outcome.entry.errorCode)
+        : null;
     feedback(error ? "error" : result === "pass" ? "ok" : "warn");
-    setView({ phase: "done", item, result, queued: outcome.status === "queued", error });
+    setView({ phase: "done", item, result, queued: outcome?.status === "queued", error });
     invalidateQueues();
   }
 
@@ -133,7 +138,13 @@ export function QcStation() {
         {view.phase === "done" && (
           <ResultPanel
             tone={view.error ? "blocked" : view.result === "pass" ? "ok" : "warn"}
-            title={view.result === "pass" ? t("floor.qc.pass") : t("floor.qc.fail")}
+            title={
+              view.error
+                ? t("floor.qc.notSaved")
+                : view.result === "pass"
+                  ? t("floor.qc.pass")
+                  : t("floor.qc.fail")
+            }
             reason={
               view.error ??
               (view.result === "pass"
@@ -150,7 +161,11 @@ export function QcStation() {
               </BigButton>
             }
           >
-            {view.queued && <p className="text-2xl">{t("floor.press.queued")}</p>}
+            {!view.error && (
+              <p className="text-2xl" data-testid="qc-sync">
+                {view.queued ? t("floor.press.queued") : t("floor.common.sent")}
+              </p>
+            )}
           </ResultPanel>
         )}
       </section>

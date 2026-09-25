@@ -18,6 +18,7 @@ import { lock, setActiveStation, setAutoLockMinutes } from "../app/actions";
 import { useApp, useSession } from "../app/store";
 import { LangToggle } from "../components/LangToggle";
 import { OfflineStrip, SyncStatus } from "../components/SyncStatus";
+import { UpdatePrompt } from "../components/UpdatePrompt";
 import { useSyncStore } from "../outbox/sync";
 import { PackStation } from "../stations/PackStation";
 import { PickStation } from "../stations/PickStation";
@@ -48,6 +49,7 @@ export function StationShell() {
           <span className="text-2xl font-bold">{t("floor.station.choose")}</span>
           <div className="flex items-center gap-3">
             <span className="text-lg text-muted-foreground">{session.user.name}</span>
+            <UpdatePrompt />
             <LangToggle />
             <Button size="xl" variant="outline" onClick={() => void lock()}>
               <Lock /> {t("floor.header.lock")}
@@ -83,6 +85,7 @@ export function StationShell() {
         className="h-18"
         actions={
           <>
+            <UpdatePrompt />
             <SyncStatus hideOnline />
             <LangToggle />
             <Button

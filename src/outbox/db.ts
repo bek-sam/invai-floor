@@ -1,5 +1,12 @@
 import Dexie, { type Table } from "dexie";
-import type { QcInput, QueueItem, ReprintReason, ScanInput, Station } from "../api/types";
+import type {
+  PackOrderInput,
+  QcInput,
+  QueueItem,
+  ReprintReason,
+  ScanInput,
+  Station,
+} from "../api/types";
 import type { ReceivingCommand } from "../stations/receiving/commands";
 
 export type OutboxCommand =
@@ -8,6 +15,7 @@ export type OutboxCommand =
   | { kind: "assignBin"; code: string; orderId: string }
   | { kind: "releaseBin"; code: string }
   | { kind: "reprint"; orderItemId: string; reason: ReprintReason; note: string | null }
+  | { kind: "packOrder"; input: PackOrderInput }
   | ReceivingCommand;
 
 /**

@@ -156,6 +156,7 @@ function describeWhat(e: OutboxEntry, t: TFunction): string {
     case "assignBin":
     case "releaseBin":
     case "reprint":
+    case "packOrder":
       return t(`floor.outbox.what.${c.kind}`);
     case "receiving":
       return t("floor.station.receiving");

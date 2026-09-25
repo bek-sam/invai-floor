@@ -66,6 +66,8 @@ function sendCommand(command: OutboxCommand, token: string): Promise<unknown> {
       return api.releaseBin(token, command.code);
     case "reprint":
       return api.requestReprint(token, command.orderItemId, command.reason, command.note);
+    case "packOrder":
+      return api.packOrder(token, command.input);
     case "receiving":
       return sendReceiving(command, token, api.kind);
   }
@@ -109,6 +111,9 @@ async function unitOf(command: OutboxCommand): Promise<OutboxUnit | null> {
       break;
     case "releaseBin":
       bin = command.code;
+      break;
+    case "packOrder":
+      item = await findCachedItem((i) => i.orderId === command.input.orderId);
       break;
     case "receiving":
       return null;

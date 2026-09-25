@@ -157,7 +157,8 @@ describe("viewFromResult", () => {
     ["item_on_hold", "mismatch.item_on_hold"],
   ] as const)("maps %s to a red panel with its reason", (mismatch, key) => {
     const v = viewFromResult(result({ ok: false, mismatch, message: "server text" }));
-    expect(v).toMatchObject({ tone: "blocked", reasonKey: key, message: "server text" });
+    // The server's English message never reaches the screen; the reason key is translated.
+    expect(v).toMatchObject({ tone: "blocked", reasonKey: key, message: null });
   });
 
   it("carries the order, design and expected vs scanned blank", () => {

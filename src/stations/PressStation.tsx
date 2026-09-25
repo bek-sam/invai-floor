@@ -23,7 +23,13 @@ import {
   type PressState,
   pressReducer,
 } from "../scan/pressFlow";
-import { errorView, localPressCheck, queuedView, type ResultView } from "../scan/result";
+import {
+  errorView,
+  localPressCheck,
+  queuedView,
+  type ResultView,
+  refusalText,
+} from "../scan/result";
 import { useScan } from "../scanner/useWedgeScanner";
 import { Badges, BlankChips, Prompt, QueueFooter } from "./common";
 
@@ -79,11 +85,12 @@ export function PressStation() {
           : queuedView(null);
         apply({ type: "local", clientScanId: s.clientScanId, view });
       } else {
-        view = errorView("floor.error.rejected", outcome.message);
+        view = errorView("floor.error.rejected", refusalText(t, outcome.entry.errorCode));
         apply({ type: "local", clientScanId: s.clientScanId, view });
       }
-    } catch (err) {
-      view = errorView("floor.error.server", String(err));
+    } catch {
+      // Not the server: the tablet couldn't save it (signed out, storage). Nothing was sent.
+      view = errorView("floor.error.local", null);
       apply({ type: "local", clientScanId: s.clientScanId, view });
     }
     feedback(view.tone === "ok" ? "ok" : view.tone === "warn" ? "warn" : "error");
@@ -128,10 +135,30 @@ export function PressStation() {
       (state.phase === "result" && state.result?.orderItemId) ||
       ("preview" in state && state.preview?.orderItemId) ||
       null;
-    if (orderItemId) {
-      await submit({ kind: "reprint", orderItemId, reason: reason.reason, note: reason.note });
-      toast.success(t("floor.press.problemSent"));
+    if (!orderItemId) {
+      // Nothing to attach it to (unknown transfer): say so rather than drop it.
+      feedback("warn");
+      toast.warning(t("floor.press.problemNoUnit"));
+      return;
     }
+    const outcome = await submit({
+      kind: "reprint",
+      orderItemId,
+      reason: reason.reason,
+      note: reason.note,
+    }).catch(() => null);
+    if (!outcome) {
+      feedback("error");
+      toast.error(t("floor.error.local"));
+      return;
+    }
+    if (outcome.status === "failed") {
+      feedback("error");
+      toast.error(refusalText(t, outcome.entry.errorCode));
+      return;
+    }
+    if (outcome.status === "queued") toast.warning(t("floor.press.problemQueued"));
+    else toast.success(t("floor.press.problemSent"));
     apply({ type: "next" });
   }
 

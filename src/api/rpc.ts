@@ -4,7 +4,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
 import { API_URL } from "../lib/config";
 import { ApiFailure, toFailure } from "./errors";
-import type { FloorApi } from "./types";
+import type { FloorApi, PackOrderResult } from "./types";
 
 type Auth = { scheme: "Station" | "Bearer"; token: string };
 type Ctx = { auth?: Auth };
@@ -15,6 +15,14 @@ export function rpcUrl() {
   const origin =
     API_URL || (typeof location === "undefined" ? "http://localhost" : location.origin);
   return `${origin}/rpc`;
+}
+
+/** The `missing[]` of a PACK_INCOMPLETE refusal, or null for any other error. */
+export function packIncompleteMissing(err: unknown): PackOrderResult["missing"] | null {
+  const e = err as { code?: unknown; data?: unknown } | null;
+  if (e?.code !== "PACK_INCOMPLETE") return null;
+  const missing = (e.data as { missing?: unknown } | null)?.missing;
+  return Array.isArray(missing) ? (missing as PackOrderResult["missing"]) : [];
 }
 
 export function createRpcApi(): FloorApi {
@@ -93,6 +101,17 @@ export function createRpcApi(): FloorApi {
 
     releaseBin: (token, code) =>
       call(() => client.production.bins.release({ code }, bearer(token))),
+
+    packOrder: (token, input) =>
+      call(async () => {
+        try {
+          return await client.production.packOrder(input, bearer(token));
+        } catch (err) {
+          const missing = packIncompleteMissing(err);
+          if (!missing) throw err;
+          return { orderId: input.orderId, packed: false, missing, override: null };
+        }
+      }),
 
     fileUrl: (token, key) =>
       call(

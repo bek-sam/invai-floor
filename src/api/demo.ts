@@ -6,6 +6,7 @@ import type {
   FloorApi,
   FloorSession,
   MismatchReason,
+  PackOrderResult,
   QueueItem,
   ScanInput,
   ScanResult,
@@ -153,6 +154,8 @@ export function createDemoApi(): FloorApi {
   const sessions = new Map<string, (typeof STAFF)[number]>();
   const bins = new Map<string, string>(); // code -> orderId
   const boxed = new Set<string>();
+  const packs = new Map<string, PackOrderResult>(); // idempotencyKey -> result
+  const handedToLead = new Set<string>(); // orderIds; off the pack list until a lead sorts them
   const doneToday: Record<Station, number> = { pick: 3, press: 12, qc: 9, pack: 6, receiving: 0 };
   for (const i of items) if (i.binCode) bins.set(i.binCode, i.orderId);
 
@@ -338,6 +341,10 @@ export function createDemoApi(): FloorApi {
           "production.qc",
           "shipping.read",
           "files.read",
+          // Owner and admin can hand a short order to a lead (decision 0010).
+          ...(user.role === "owner" || user.role === "admin"
+            ? ["production.override" as const]
+            : []),
         ],
       };
       return session;
@@ -357,6 +364,7 @@ export function createDemoApi(): FloorApi {
       auth(token);
       const list: QueueItem[] = items
         .filter((i) => inQueue(station, i, boxed))
+        .filter((i) => station !== "pack" || !handedToLead.has(i.orderId))
         .map(({ cancelled: _c, picked: _p, ...i }) => ({
           ...i,
           orderOpenUnits: openUnits(i.orderId),
@@ -419,6 +427,49 @@ export function createDemoApi(): FloorApi {
       const out = binOut(code);
       bins.delete(code);
       return { ...out, orderId: null, orderNo: null, unitsInBin: 0 };
+    },
+
+    async packOrder(token, input) {
+      await delay();
+      const user = auth(token);
+      const prior = packs.get(input.idempotencyKey);
+      if (prior) return prior;
+      if (input.override && user.role !== "owner" && user.role !== "admin")
+        throw new ApiFailure(
+          "rejected",
+          "FORBIDDEN",
+          "Only an owner or admin can hand an order to a lead",
+          403,
+        );
+      const open = items.filter((i) => i.orderId === input.orderId && !i.cancelled);
+      if (!open.length) throw new ApiFailure("rejected", "NOT_FOUND", "Order not found", 404);
+      if (open.some((i) => i.state === "on_hold"))
+        throw new ApiFailure("rejected", "CONFLICT", "Order is on hold", 409);
+      const missing = open
+        .filter((i) => i.state !== "packed")
+        .map((i) => ({ orderItemId: i.orderItemId, state: i.state }));
+      // Refused without an override: nothing changes and nothing is stored.
+      if (missing.length && !input.override)
+        return { orderId: input.orderId, packed: false, missing, override: null };
+      const override = missing.length
+        ? {
+            reason: input.override?.reason ?? "",
+            by: user.id,
+            byName: user.name,
+            at: new Date().toISOString(),
+            missingItemIds: missing.map((m) => m.orderItemId),
+          }
+        : null;
+      if (missing.length) handedToLead.add(input.orderId);
+      else {
+        for (const i of open) boxed.add(i.orderItemId);
+        doneToday.pack++;
+      }
+      for (const [code, orderId] of bins) if (orderId === input.orderId) bins.delete(code);
+      for (const i of open) i.binCode = null;
+      const result = { orderId: input.orderId, packed: !missing.length, missing, override };
+      packs.set(input.idempotencyKey, result);
+      return result;
     },
 
     async fileUrl(token, key) {

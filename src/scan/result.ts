@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import type { MismatchReason, QueueItem, ScanResult } from "../api/types";
 import { parseCode } from "../lib/codes";
 
@@ -8,7 +9,7 @@ export type ResultView = {
   tone: ResultTone;
   /** `mismatch.<reason>` / `local.*` / `error.*` key for the big reason line, null when OK. */
   reasonKey: string | null;
-  /** Server message, shown small under the translated reason. */
+  /** Extra detail, already translated (never the server's English text). */
   message: string | null;
   orderNo: string | null;
   designName: string | null;
@@ -50,7 +51,8 @@ export function viewFromResult(r: ScanResult): ResultView {
   return {
     tone: r.ok ? "ok" : "blocked",
     reasonKey: r.ok ? null : `mismatch.${r.mismatch ?? "unknown"}`,
-    message: r.ok ? null : r.message || null,
+    // The server's `message` is English; the reason and needs/scanned lines say it in both.
+    message: null,
     orderNo: r.orderNo,
     designName: r.design?.name ?? null,
     expected: blankLabel(r.expected),
@@ -119,4 +121,15 @@ export function queuedView(preview: QueueItem | null): ResultView {
 
 export function errorView(reasonKey: string, message: string | null): ResultView {
   return { ...EMPTY, tone: "blocked", reasonKey, message };
+}
+
+/**
+ * A server refusal in the reader's language, from its code: "The server refused it: this
+ * person isn't allowed to do this". The server's own message is English, so it is never shown.
+ */
+export function refusalText(t: TFunction, code: string | null | undefined): string {
+  const error = t(`floor.outbox.code.${code}`, {
+    defaultValue: t("floor.outbox.code.other", { code: code || "?" }),
+  });
+  return t("floor.outbox.reason.rejected", { error });
 }
