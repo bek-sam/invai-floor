@@ -110,8 +110,12 @@ async function unitOf(command: OutboxCommand): Promise<OutboxUnit | null> {
     case "releaseBin":
       bin = command.code;
       break;
-    default:
+    case "receiving":
       return null;
+    default: {
+      const unhandled: never = command; // a new command kind must say what unit it is about
+      return unhandled;
+    }
   }
   if (!item && !bin) return null;
   return {

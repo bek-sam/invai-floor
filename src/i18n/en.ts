@@ -78,7 +78,6 @@ export const en = {
       assignBin: "Put in tote",
       releaseBin: "Empty tote",
       reprint: "Reprint request",
-      other: "Change",
     },
     reason: {
       blocked: "The server BLOCKED it: {{mismatch}}",

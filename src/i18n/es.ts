@@ -81,7 +81,6 @@ export const es: FloorStrings = {
       assignBin: "Poner en caja",
       releaseBin: "Vaciar caja",
       reprint: "Pedir reimpresión",
-      other: "Cambio",
     },
     reason: {
       blocked: "El servidor lo BLOQUEÓ: {{mismatch}}",

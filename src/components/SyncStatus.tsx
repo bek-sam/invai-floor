@@ -157,8 +157,8 @@ function describeWhat(e: OutboxEntry, t: TFunction): string {
     case "releaseBin":
     case "reprint":
       return t(`floor.outbox.what.${c.kind}`);
-    default:
-      return t("floor.outbox.what.other");
+    case "receiving":
+      return t("floor.station.receiving");
   }
 }
 
@@ -193,7 +193,7 @@ function describeError(e: OutboxEntry, t: TFunction): string {
       return t("floor.outbox.reason.session", { name: e.staffName });
     case "station_forgotten":
       return t("floor.outbox.reason.station_forgotten");
-    default:
+    case "rejected":
       return t("floor.outbox.reason.rejected", {
         error: t(`floor.outbox.code.${code}`, {
           defaultValue: t("floor.outbox.code.other", { code: code || "?" }),
