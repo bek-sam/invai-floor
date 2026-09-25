@@ -19,6 +19,7 @@ export const en = {
     forget: "Forget this station",
     forgetConfirm: "Remove the station token from this tablet? You will need the QR code again.",
     connected: "Station connected",
+    removed: "This tablet was removed in InvAI. Pair it again with a new station QR code.",
   },
   login: {
     title: "Enter your PIN",

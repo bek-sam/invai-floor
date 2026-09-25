@@ -53,6 +53,8 @@ export type SseOptions = {
   onStatus?: (s: SseStatus) => void;
   /** Called after a reconnect: events may have been missed, so refetch. */
   onReconnect?: () => void;
+  /** The server answered 401: the session ended or the tablet was unpaired. */
+  onUnauthorized?: () => void;
   fetchImpl?: typeof fetch;
   minDelayMs?: number;
   maxDelayMs?: number;
@@ -93,6 +95,7 @@ export function connectSse(opts: SseOptions): () => void {
         signal: controller.signal,
         cache: "no-store",
       });
+      if (res.status === 401) opts.onUnauthorized?.();
       if (!res.ok || !res.body) throw new Error(`SSE HTTP ${res.status}`);
       attempt = 0;
       opts.onStatus?.("open");

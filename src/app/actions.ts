@@ -1,5 +1,5 @@
 import { DEMO_STATION_TOKEN } from "../api/demo";
-import type { ApiFailure } from "../api/errors";
+import { ApiFailure, toFailure } from "../api/errors";
 import type { FloorSession, QueueItem, Station } from "../api/types";
 import { findCachedItem, invalidateQueues } from "../hooks/useStationQueue";
 import { i18n, type Lang, setLang } from "../i18n";
@@ -45,9 +45,7 @@ export function isLead(session: FloorSession | null): boolean {
 export const engine = new SyncEngine({
   send: (command, token) => sendCommand(command, token),
   currentSession,
-  onAuthExpired: () => {
-    if (useApp.getState().session) void lock({ expired: true });
-  },
+  onAuthExpired: () => void onAuthFailure(),
   // The alert itself is on screen (SyncStatus); this is the sound.
   onReplayRejected: () => feedback("error"),
   onSent: () => invalidateQueues(),
@@ -218,7 +216,13 @@ export async function connectStation(
   const api = apiFor(station);
   await api.stationStaff(station.token); // throws when the token is wrong or the API is down
   await kvSet(K.station, station);
-  useApp.setState({ station, api, activeStation: station.stationKind, session: null });
+  useApp.setState({
+    station,
+    api,
+    activeStation: station.stationKind,
+    session: null,
+    stationRemoved: false,
+  });
   void requestPersistentStorage();
 }
 
@@ -250,10 +254,63 @@ export async function forgetStation() {
   useApp.setState({ station: null, api: rpcApi, activeStation: null });
 }
 
+let stationCheck: Promise<boolean> | null = null;
+
+/**
+ * Ask the station token itself (floor.staff) whether InvAI still knows this tablet. True only for
+ * a clear "no" (401 / STATION_REVOKED); offline or a server error keeps the pairing.
+ */
+export function checkStationRevoked(): Promise<boolean> {
+  stationCheck ??= (async () => {
+    const { station, api } = useApp.getState();
+    if (!station || station.demo) return false;
+    try {
+      await api.stationStaff(station.token);
+      return false;
+    } catch (err) {
+      const f = toFailure(err);
+      return f.kind === "auth" || f.code === "STATION_REVOKED";
+    }
+  })().finally(() => {
+    stationCheck = null;
+  });
+  return stationCheck;
+}
+
+/**
+ * The station token was revoked in InvAI (a lost tablet): drop the pairing and go to the setup
+ * screen. Unsent outbox entries are kept, parked as `station_forgotten` (forgetStation).
+ */
+export async function stationWasRemoved() {
+  await forgetStation();
+  useApp.setState({ stationRemoved: true, sessionExpired: false });
+}
+
+/**
+ * Any request answered 401: either the tablet was unpaired in InvAI, or only the floor session
+ * ended. The station token tells which.
+ */
+export async function onAuthFailure() {
+  if (!useApp.getState().station) return;
+  if (await checkStationRevoked()) await stationWasRemoved();
+  else if (useApp.getState().session) await lock({ expired: true });
+}
+
 export async function login(pin: string): Promise<FloorSession> {
   const { station, api } = useApp.getState();
   if (!station) throw new Error("No station");
-  const session = await api.login(station.token, pin);
+  let session: FloorSession;
+  try {
+    session = await api.login(station.token, pin);
+  } catch (err) {
+    const f = toFailure(err);
+    // A wrong PIN is INVALID_PIN; any other 401 here is about the station token.
+    if (f.kind === "auth" && f.code !== "INVALID_PIN" && (await checkStationRevoked())) {
+      await stationWasRemoved();
+      throw new ApiFailure("auth", "STATION_REVOKED", "This tablet was removed", 401);
+    }
+    throw err;
+  }
   // The session knows the real station; the org name comes from me.get.
   const org = await api.org(session.sessionToken).catch(() => null);
   const updated: StationConfig = {

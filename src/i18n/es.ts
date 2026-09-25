@@ -20,6 +20,8 @@ export const es: FloorStrings = {
     anyType: "Cualquiera (elige el personal)",
     forget: "Olvidar esta estación",
     forgetConfirm: "¿Quitar el token de esta tableta? Necesitarás el código QR otra vez.",
+    removed:
+      "Esta tableta se quitó en InvAI. Vuelve a vincularla con un nuevo código QR de estación.",
     connected: "Estación conectada",
   },
   login: {

@@ -1,5 +1,6 @@
 import { REALTIME_SSE_PATH } from "@invai/contracts";
 import { useEffect } from "react";
+import { onAuthFailure } from "../app/actions";
 import { currentToken, useApp } from "../app/store";
 import { API_URL } from "../lib/config";
 import { connectSse } from "../realtime/sse";
@@ -29,6 +30,7 @@ export function useRealtime() {
       token: currentToken,
       onStatus: (live) => useApp.setState({ live }),
       onReconnect: invalidateQueues,
+      onUnauthorized: () => void onAuthFailure(),
       onMessage: (m) => {
         if (QUEUE_EVENTS.has(m.event)) invalidateQueues();
       },

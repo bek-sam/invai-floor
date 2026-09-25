@@ -41,6 +41,8 @@ export function LoginScreen() {
     } catch (err) {
       const f = toFailure(err);
       setPin("");
+      // The tablet was unpaired in InvAI: the setup screen takes over and says so.
+      if (f.code === "STATION_REVOKED") return;
       if (f.code === "INVALID_PIN" || f.kind === "auth") setError(t("floor.login.wrongPin"));
       else if (f.code === "STATION_INACTIVE") setError(t("floor.login.stationInactive"));
       else if (f.retryable)

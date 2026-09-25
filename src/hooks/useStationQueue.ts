@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type ApiFailure, toFailure } from "../api/errors";
 import type { QueueItem, Station } from "../api/types";
+import { onAuthFailure } from "../app/actions";
 import { useApp } from "../app/store";
 import { floorDb } from "../outbox/db";
 
@@ -51,12 +52,15 @@ export function useStationQueue(station: Station): QueueState {
       });
     } catch (err) {
       if (n !== seq.current) return;
+      const failure = toFailure(err);
+      // 401: the tablet may have been unpaired in InvAI, or the session ended.
+      if (failure.kind === "auth") void onAuthFailure();
       const cached = await floorDb.queueCache.get(station);
       setState((s) => ({
         items: cached?.items ?? s.items,
         counts: s.counts,
         loading: false,
-        error: toFailure(err),
+        error: failure,
         cachedAt: cached?.fetchedAt ?? null,
       }));
     }

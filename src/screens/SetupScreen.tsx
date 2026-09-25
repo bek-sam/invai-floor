@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toFailure } from "../api/errors";
 import { connectDemoStation, connectStation } from "../app/actions";
+import { useApp } from "../app/store";
 import { LangToggle } from "../components/LangToggle";
 import { parseStationQr } from "../lib/codes";
 import { useScan } from "../scanner/useWedgeScanner";
@@ -15,6 +16,7 @@ export function SetupScreen() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const removed = useApp((s) => s.stationRemoved);
 
   async function connect(raw: string) {
     const payload = parseStationQr(raw);
@@ -55,6 +57,14 @@ export function SetupScreen() {
           </div>
           <LangToggle />
         </div>
+        {removed && (
+          <p
+            role="alert"
+            className="rounded-xl border-2 border-warning bg-warning/10 p-4 text-xl font-semibold"
+          >
+            {t("floor.setup.removed")}
+          </p>
+        )}
         <div className="flex items-center gap-6 rounded-2xl border-2 border-dashed border-border p-6">
           <QrCode className="size-24 shrink-0 text-muted-foreground" aria-hidden />
           <form

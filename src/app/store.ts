@@ -28,6 +28,8 @@ export type AppState = {
   live: LiveStatus;
   /** Set when the outbox hit an expired session; the PIN screen explains why. */
   sessionExpired: boolean;
+  /** Set when InvAI revoked this tablet's station token; the setup screen explains why. */
+  stationRemoved: boolean;
 };
 
 export const rpcApi = createRpcApi();
@@ -46,6 +48,7 @@ export const useApp = create<AppState>(() => ({
   autoLockMinutes: DEFAULT_AUTO_LOCK_MINUTES,
   live: "off",
   sessionExpired: false,
+  stationRemoved: false,
 }));
 
 /** The signed-in session; screens under the station shell can rely on it. */
