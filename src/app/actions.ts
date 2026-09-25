@@ -1,28 +1,23 @@
-import { toast } from "@invai/ui";
 import { DEMO_STATION_TOKEN } from "../api/demo";
 import type { ApiFailure } from "../api/errors";
-import type { FloorSession, ScanResult, Station } from "../api/types";
+import type { FloorSession, QueueItem, Station } from "../api/types";
+import { findCachedItem, invalidateQueues } from "../hooks/useStationQueue";
 import { i18n, type Lang, setLang } from "../i18n";
+import { transferIdOf } from "../lib/codes";
 import { demoRequested } from "../lib/config";
 import { feedback } from "../lib/feedback";
+import { floorDb, kvDelete, kvGet, kvSet, type OutboxCommand, type OutboxUnit } from "../outbox/db";
 import {
-  floorDb,
-  kvDelete,
-  kvGet,
-  kvSet,
-  type OutboxCommand,
-  type OutboxEntry,
-} from "../outbox/db";
+  type CurrentSession,
+  discardEntry,
+  parkForForgottenStation,
+  resumeOwnEntries,
+  retryParked,
+  sendAsMe,
+} from "../outbox/outbox";
 import { type SubmitOutcome, SyncEngine } from "../outbox/sync";
 import { sendReceiving } from "../stations/receiving/commands";
-import {
-  type AppState,
-  currentToken,
-  getDemoApi,
-  rpcApi,
-  type StationConfig,
-  useApp,
-} from "./store";
+import { type AppState, getDemoApi, rpcApi, type StationConfig, useApp } from "./store";
 
 const K = {
   station: "station",
@@ -36,16 +31,26 @@ function apiFor(station: StationConfig | null) {
   return station?.demo ? getDemoApi() : rpcApi;
 }
 
-/** Scans that were saved offline; when they replay, a red result must still reach someone. */
-const awaitingReplay = new Set<string>();
+/** The signed-in person, as the outbox needs it to tell whose entries are whose. */
+export function currentSession(): CurrentSession | null {
+  const s = useApp.getState().session;
+  return s ? { token: s.sessionToken, userId: s.user.id, stationId: s.station.id } : null;
+}
+
+/** Leads (owner, admin, office) can retry or discard parked entries. */
+export function isLead(session: FloorSession | null): boolean {
+  return !!session && ["owner", "admin", "office"].includes(session.user.role);
+}
 
 export const engine = new SyncEngine({
   send: (command, token) => sendCommand(command, token),
-  currentSessionToken: currentToken,
+  currentSession,
   onAuthExpired: () => {
     if (useApp.getState().session) void lock({ expired: true });
   },
-  onReplayed: (entries) => notifyReplayed(entries),
+  // The alert itself is on screen (SyncStatus); this is the sound.
+  onReplayRejected: () => feedback("error"),
+  onSent: () => invalidateQueues(),
 });
 
 function sendCommand(command: OutboxCommand, token: string): Promise<unknown> {
@@ -66,31 +71,87 @@ function sendCommand(command: OutboxCommand, token: string): Promise<unknown> {
   }
 }
 
-function notifyReplayed(entries: OutboxEntry[]) {
-  for (const e of entries) {
-    if (!awaitingReplay.delete(e.id)) continue;
-    if (e.command.kind !== "scan") continue;
-    const r = e.result as ScanResult | null;
-    if (e.status === "failed" || (r && !r.ok)) {
-      feedback("error");
-      const reason = r?.mismatch ? i18n.t(`floor.mismatch.${r.mismatch}`) : (e.lastError ?? "");
-      toast.error(i18n.t("floor.press.replayBlocked", { orderNo: r?.orderNo ?? "?", reason }), {
-        duration: 20_000,
-      });
-    }
-  }
-}
-
 /** Every write goes through the outbox, online or not. */
 export async function submit(command: OutboxCommand): Promise<SubmitOutcome> {
   const session = useApp.getState().session;
   if (!session) throw new Error("Not signed in");
-  const outcome = await engine.submit(command, {
-    sessionToken: session.sessionToken,
-    staffName: session.user.name,
-  });
-  if (outcome.status === "queued") awaitingReplay.add(outcome.entry.id);
-  return outcome;
+  return engine.submit(
+    command,
+    {
+      sessionToken: session.sessionToken,
+      staffName: session.user.name,
+      staffId: session.user.id,
+      stationId: session.station.id,
+    },
+    await unitOf(command).catch(() => null),
+  );
+}
+
+/** Order, design and blank for the problems list, from the queues cached on this tablet. */
+async function unitOf(command: OutboxCommand): Promise<OutboxUnit | null> {
+  let item: QueueItem | null = null;
+  let bin: string | null = null;
+  switch (command.kind) {
+    case "scan": {
+      const id = transferIdOf(command.input.transferCode);
+      item = await findCachedItem((i) => i.transferId === id || i.orderItemId === id);
+      break;
+    }
+    case "qc":
+      item = await findCachedItem((i) => i.orderItemId === command.input.orderItemId);
+      break;
+    case "reprint":
+      item = await findCachedItem((i) => i.orderItemId === command.orderItemId);
+      break;
+    case "assignBin":
+      bin = command.code;
+      item = await findCachedItem((i) => i.orderId === command.orderId);
+      break;
+    case "releaseBin":
+      bin = command.code;
+      break;
+    default:
+      return null;
+  }
+  if (!item && !bin) return null;
+  return {
+    orderNo: item?.orderNo ?? null,
+    design: item?.design.name ?? null,
+    blank: item
+      ? `${item.blank.brand} ${item.blank.style} ${item.blank.color} ${item.blank.size}`
+      : null,
+    bin: bin ?? item?.binCode ?? null,
+  };
+}
+
+async function afterOutboxChange() {
+  await engine.refreshCounts();
+  engine.kick();
+}
+
+/** Lead: put parked entries back in the queue as they were. */
+export async function retryEntries(ids: string[]) {
+  const n = await retryParked(ids, currentSession());
+  await afterOutboxChange();
+  return n;
+}
+
+/** Lead: send an entry whose author's sign-in ended, recorded under the lead's own name. */
+export async function sendEntryAsMe(id: string) {
+  const s = useApp.getState().session;
+  const current = currentSession();
+  if (!s || !current || !isLead(s)) return false;
+  const ok = await sendAsMe(id, { ...current, staffName: s.user.name });
+  await afterOutboxChange();
+  return ok;
+}
+
+/** Lead: drop a parked entry for good. */
+export async function discardParked(id: string) {
+  if (!isLead(useApp.getState().session)) return false;
+  const ok = await discardEntry(id);
+  await afterOutboxChange();
+  return ok;
 }
 
 export function queuedReason(outcome: SubmitOutcome): ApiFailure | null {
@@ -148,6 +209,18 @@ export async function connectStation(
   await api.stationStaff(station.token); // throws when the token is wrong or the API is down
   await kvSet(K.station, station);
   useApp.setState({ station, api, activeStation: station.stationKind, session: null });
+  void requestPersistentStorage();
+}
+
+/** Ask the browser not to evict IndexedDB (the outbox) under storage pressure. */
+async function requestPersistentStorage() {
+  try {
+    if (!navigator.storage?.persist) return;
+    const granted = (await navigator.storage.persisted?.()) || (await navigator.storage.persist());
+    await kvSet("storagePersisted", granted);
+  } catch {
+    // Not supported (old WebView, private mode): the outbox still works, just evictable.
+  }
 }
 
 export async function connectDemoStation() {
@@ -155,7 +228,13 @@ export async function connectDemoStation() {
   await connectStation(d, true);
 }
 
+/**
+ * Unsent entries are parked as `station_forgotten` first, so they are never replayed under the
+ * next station; the login screen warns with the count before calling this.
+ */
 export async function forgetStation() {
+  await parkForForgottenStation();
+  await engine.refreshCounts();
   await logout();
   await Promise.all([kvDelete(K.station), kvDelete(K.activeStation), floorDb.queueCache.clear()]);
   useApp.setState({ station: null, api: rpcApi, activeStation: null });
@@ -182,6 +261,13 @@ export async function login(pin: string): Promise<FloorSession> {
     activeStation: updated.stationKind ?? s.activeStation,
   }));
   await applyStaffLang(session.user.id, session.user.name);
+  // Their own entries parked because their earlier sign-in ended go back in the queue.
+  await resumeOwnEntries({
+    token: session.sessionToken,
+    userId: session.user.id,
+    stationId: session.station.id,
+  });
+  await engine.refreshCounts();
   engine.kick(); // sync anything saved while nobody was signed in
   return session;
 }

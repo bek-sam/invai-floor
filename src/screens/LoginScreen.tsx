@@ -1,4 +1,11 @@
-import { BigButton, PinPad } from "@invai/ui";
+import {
+  BigButton,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  PinPad,
+} from "@invai/ui";
 import { useLiveQuery } from "dexie-react-hooks";
 import { LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -9,6 +16,7 @@ import { useApp } from "../app/store";
 import { LangToggle } from "../components/LangToggle";
 import { SyncStatus } from "../components/SyncStatus";
 import { floorDb } from "../outbox/db";
+import { pendingCount } from "../outbox/outbox";
 import { useScan } from "../scanner/useWedgeScanner";
 
 /** PIN login on a paired station. Scanning a badge with the PIN encoded works too. */
@@ -23,6 +31,7 @@ export function LoginScreen() {
     () => floorDb.staffPrefs.orderBy("lastLoginAt").reverse().limit(6).toArray(),
     [],
   );
+  const [forgetOpen, setForgetOpen] = useState(false);
 
   async function submit(value: string) {
     setBusy(true);
@@ -97,14 +106,14 @@ export function LoginScreen() {
           <button
             type="button"
             className="text-sm text-muted-foreground underline"
-            onClick={() => {
-              if (window.confirm(t("floor.setup.forgetConfirm"))) void forgetStation();
-            }}
+            onClick={() => setForgetOpen(true)}
+            data-testid="forget-station"
           >
             {t("floor.setup.forget")}
           </button>
         </div>
       </aside>
+      <ForgetStationDialog open={forgetOpen} onClose={() => setForgetOpen(false)} />
       <main className="flex flex-1 flex-col items-center justify-center gap-4 overflow-y-auto p-6 [&>*]:shrink-0">
         <div className="flex w-full max-w-md items-center justify-between">
           <h2 className="text-3xl font-bold">
@@ -143,5 +152,53 @@ export function LoginScreen() {
         </p>
       </main>
     </div>
+  );
+}
+
+/**
+ * Forgetting the station with unsent scans states how many will never be sent, and needs an
+ * explicit tap on a button that repeats the count.
+ */
+function ForgetStationDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  const pending = useLiveQuery(() => (open ? pendingCount() : 0), [open]) ?? 0;
+  const [busy, setBusy] = useState(false);
+  useScan(() => {}, open);
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent showClose={false} className="max-w-2xl p-8" data-testid="forget-dialog">
+        <DialogTitle className="text-3xl font-bold">{t("floor.outbox.forget.title")}</DialogTitle>
+        <DialogDescription
+          className={pending > 0 ? "text-xl font-semibold text-danger" : "text-xl"}
+        >
+          {pending > 0
+            ? t("floor.outbox.forget.pending", { count: pending })
+            : t("floor.setup.forgetConfirm")}
+        </DialogDescription>
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <BigButton variant="outline" autoFocus onClick={onClose}>
+            {t("floor.common.cancel")}
+          </BigButton>
+          <BigButton
+            variant="destructive"
+            disabled={busy}
+            className="whitespace-normal"
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await forgetStation();
+              } finally {
+                setBusy(false);
+                onClose();
+              }
+            }}
+          >
+            {pending > 0
+              ? t("floor.outbox.forget.confirmPending", { count: pending })
+              : t("floor.outbox.forget.confirm")}
+          </BigButton>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

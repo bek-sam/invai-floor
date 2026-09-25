@@ -10,7 +10,30 @@ export type OutboxCommand =
   | { kind: "reprint"; orderItemId: string; reason: ReprintReason; note: string | null }
   | ReceivingCommand;
 
-export type OutboxStatus = "pending" | "done" | "failed";
+/**
+ * `parked`: set aside for a lead (see `ParkReason`); it never blocks later entries.
+ * `failed` is the pre-parking name for a rejected entry and is read exactly like `parked`.
+ */
+export type OutboxStatus = "pending" | "done" | "parked" | "failed";
+
+/**
+ * Why an entry was parked:
+ * - `rejected`: the server refused it (a 4xx other than 408/429).
+ * - `gave_up`: 5 attempts in a row hit a 5xx, 408, 429 or a timeout.
+ * - `blocked`: a scan saved offline came back BLOCKED from the server.
+ * - `session`: the staff member's sign-in ended before it was sent. It resumes when the same
+ *   person signs in on the same station, or a lead sends it under their own name.
+ * - `station_forgotten`: the station was forgotten with this entry unsent. It is never sent.
+ */
+export type ParkReason = "rejected" | "gave_up" | "blocked" | "session" | "station_forgotten";
+
+/** What the entry was about, in shop words, captured from the cached queue when it was made. */
+export type OutboxUnit = {
+  orderNo: string | null;
+  design: string | null;
+  blank: string | null;
+  bin: string | null;
+};
 
 export type OutboxEntry = {
   /** Insertion order; replay follows it strictly. */
@@ -21,10 +44,21 @@ export type OutboxEntry = {
   /** The floor session that made the change, so a replay is attributed to the right person. */
   sessionToken: string;
   staffName: string;
+  /** Who and where; missing on entries saved before parking existed (read as unknown). */
+  staffId?: string | null;
+  stationId?: string | null;
   createdAt: string;
   status: OutboxStatus;
   attempts: number;
   lastError: string | null;
+  /** Machine-readable error (oRPC code, or the mismatch reason for a BLOCKED replay). */
+  errorCode?: string | null;
+  /** Read `undefined` (rows from before parking) the same as `null`. */
+  parkedAt?: string | null;
+  parkReason?: ParkReason | null;
+  unit?: OutboxUnit | null;
+  /** It couldn't be sent when it was made, so a later server rejection must raise an alert. */
+  replay?: boolean;
   /** Server response once sent (the ScanResult for scans). */
   result: unknown;
   sentAt: string | null;

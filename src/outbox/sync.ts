@@ -1,24 +1,49 @@
 import { create } from "zustand";
 import type { ApiFailure, FailureKind } from "../api/errors";
-import { type FloorDB, floorDb, type OutboxCommand, type OutboxEntry } from "./db";
-import { type CommandSender, enqueue, flushOutbox, getEntry, pendingCount } from "./outbox";
+import { type FloorDB, floorDb, type OutboxCommand, type OutboxEntry, type OutboxUnit } from "./db";
+import {
+  type CommandSender,
+  type CurrentSession,
+  type EntryAuthor,
+  enqueue,
+  flushOutbox,
+  getEntry,
+  isParked,
+  parkedCount,
+  pendingCount,
+} from "./outbox";
 
 export type SyncState = {
   /** Browser connectivity AND the last request reaching the API. */
   online: boolean;
   pending: number;
-  failed: number;
+  /** Parked entries waiting for a lead. With `pending`, the unresolved count on the badge. */
+  parked: number;
   lastFailure: { kind: FailureKind; code: string; message: string } | null;
   lastSyncAt: string | null;
+  /** Entries saved offline that the server later refused; shown until someone taps OK. */
+  alerts: OutboxEntry[];
+  /** The problems sheet (opened from the sync badge or the alert). */
+  sheetOpen: boolean;
 };
 
 export const useSyncStore = create<SyncState>(() => ({
   online: typeof navigator === "undefined" ? true : navigator.onLine,
   pending: 0,
-  failed: 0,
+  parked: 0,
   lastFailure: null,
   lastSyncAt: null,
+  alerts: [],
+  sheetOpen: false,
 }));
+
+export function dismissAlerts() {
+  useSyncStore.setState({ alerts: [] });
+}
+
+export function setProblemsOpen(open: boolean) {
+  useSyncStore.setState({ sheetOpen: open });
+}
 
 export type SubmitOutcome =
   | { status: "sent"; entry: OutboxEntry; result: unknown }
@@ -27,9 +52,12 @@ export type SubmitOutcome =
 
 type EngineOptions = {
   send: CommandSender;
-  currentSessionToken: () => string | null;
+  currentSession: () => CurrentSession | null;
   onAuthExpired?: () => void;
-  onReplayed?: (entries: OutboxEntry[]) => void;
+  /** Entries saved offline that the server refused on replay (parked by this flush). */
+  onReplayRejected?: (entries: OutboxEntry[]) => void;
+  /** Anything reached the server (for refreshing station queues). */
+  onSent?: () => void;
   db?: FloorDB;
 };
 
@@ -62,17 +90,32 @@ export class SyncEngine {
     };
   }
 
+  /** Stops the retry timer (tests, teardown). */
+  stop() {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+  }
+
   /** Enqueue, then try to send right away. Resolves with the server result when it got through. */
   async submit(
     command: OutboxCommand,
-    session: { sessionToken: string; staffName: string },
+    author: EntryAuthor,
+    unit: OutboxUnit | null = null,
   ): Promise<SubmitOutcome> {
-    const entry = await enqueue(command, session, this.db);
+    const entry = await enqueue(command, author, this.db, unit);
     await this.refreshCounts();
     await this.flush();
-    const after = (await getEntry(entry.id, this.db)) ?? entry;
+    // Read and flag in one transaction, so a timer flush can't send it in between unflagged.
+    const after = await this.db.transaction("rw", this.db.outbox, async () => {
+      const e = (await getEntry(entry.id, this.db)) ?? entry;
+      if (e.status === "pending" && !e.replay && e.seq !== undefined) {
+        await this.db.outbox.update(e.seq, { replay: true });
+        return { ...e, replay: true };
+      }
+      return e;
+    });
     if (after.status === "done") return { status: "sent", entry: after, result: after.result };
-    if (after.status === "failed")
+    if (isParked(after))
       return { status: "failed", entry: after, message: after.lastError ?? "Rejected" };
     return { status: "queued", entry: after, reason: this.lastStop };
   }
@@ -110,10 +153,9 @@ export class SyncEngine {
   }
 
   private async flushOnce() {
-    const pendingBefore = await this.db.outbox.where("status").equals("pending").toArray();
     const report = await flushOutbox(this.opts.send, {
       db: this.db,
-      currentSessionToken: this.opts.currentSessionToken,
+      currentSession: this.opts.currentSession,
     });
     this.lastStop = report.stoppedBy;
     const stop = report.stoppedBy;
@@ -123,14 +165,21 @@ export class SyncEngine {
       lastFailure: stop ? { kind: stop.kind, code: stop.code, message: stop.message } : null,
       ...(report.sent > 0 ? { lastSyncAt: new Date().toISOString() } : {}),
     });
-    if (stop?.kind === "auth") this.opts.onAuthExpired?.();
+    // Only the signed-in person's own sign-in ending locks the tablet; an older one doesn't.
+    const current = this.opts.currentSession()?.token ?? null;
+    const mineEnded = report.parked.some(
+      (e) => e.parkReason === "session" && current !== null && e.sessionToken === current,
+    );
+    if (mineEnded) this.opts.onAuthExpired?.();
     await this.refreshCounts();
 
-    if (report.sent > 0 && this.opts.onReplayed) {
-      const ids = new Set(pendingBefore.map((e) => e.id));
-      const done = await this.db.outbox.where("status").anyOf("done", "failed").toArray();
-      this.opts.onReplayed(done.filter((e) => ids.has(e.id)));
+    // An ended sign-in is not a verdict on the unit, so it is listed but not alerted.
+    const rejected = report.parked.filter((e) => e.replay && e.parkReason !== "session");
+    if (rejected.length > 0) {
+      useSyncStore.setState((s) => ({ alerts: [...s.alerts, ...rejected] }));
+      this.opts.onReplayRejected?.(rejected);
     }
+    if (report.sent > 0 || report.parked.length > 0) this.opts.onSent?.();
     this.schedule(stop?.retryable ?? false);
   }
 
@@ -142,10 +191,7 @@ export class SyncEngine {
   }
 
   async refreshCounts() {
-    const [pending, failed] = await Promise.all([
-      pendingCount(this.db),
-      this.db.outbox.where("status").equals("failed").count(),
-    ]);
-    useSyncStore.setState({ pending, failed });
+    const [pending, parked] = await Promise.all([pendingCount(this.db), parkedCount(this.db)]);
+    useSyncStore.setState({ pending, parked });
   }
 }
