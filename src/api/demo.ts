@@ -153,6 +153,15 @@ export function createDemoApi(): FloorApi {
   const results = new Map<string, ScanResult>();
   const sessions = new Map<string, (typeof STAFF)[number]>();
   const bins = new Map<string, string>(); // code -> orderId
+  const binIds = new Map<string, string>(); // code -> stable demo id (Bin.id)
+  const binId = (code: string) => {
+    let id = binIds.get(code);
+    if (!id) {
+      id = uid(3, binIds.size + 1);
+      binIds.set(code, id);
+    }
+    return id;
+  };
   const boxed = new Set<string>();
   const packs = new Map<string, PackOrderResult>(); // idempotencyKey -> result
   const handedToLead = new Set<string>(); // orderIds; off the pack list until a lead sorts them
@@ -301,7 +310,10 @@ export function createDemoApi(): FloorApi {
     const orderId = bins.get(code) ?? null;
     const inBin = items.filter((i) => i.orderId === orderId && i.binCode === code);
     return {
+      id: binId(code),
       code,
+      name: null,
+      archivedAt: null,
       locationId: null,
       orderId,
       orderNo: inBin[0]?.orderNo ?? items.find((i) => i.orderId === orderId)?.orderNo ?? null,
