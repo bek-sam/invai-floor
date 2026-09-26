@@ -176,8 +176,11 @@ export class SyncEngine {
     // Only a server verdict on the unit ("set it aside") alerts. An ended sign-in or a server
     // that never answered (gave_up) is listed in the problems sheet, not alerted: overload is
     // not an error.
+    // An entry from an older app version the server no longer accepts always alerts (T-13-1).
     const rejected = report.parked.filter(
-      (e) => e.replay && (e.parkReason === "rejected" || e.parkReason === "blocked"),
+      (e) =>
+        e.parkReason === "stale_version" ||
+        (e.replay && (e.parkReason === "rejected" || e.parkReason === "blocked")),
     );
     if (rejected.length > 0) {
       useSyncStore.setState((s) => ({ alerts: [...s.alerts, ...rejected] }));

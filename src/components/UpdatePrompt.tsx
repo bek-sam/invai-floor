@@ -20,20 +20,23 @@ export function reloadIfAsked() {
   if (asked) window.location.reload();
 }
 
+/** The waiting version's activate function, or null (the "Update needed" screen uses it too). */
+export function useUpdateReady() {
+  return useUpdate((s) => s.apply);
+}
+
+/** Activate the waiting version and reload when it takes control. */
+export function applyUpdate(apply: () => void) {
+  asked = true;
+  apply();
+}
+
 export function UpdatePrompt() {
   const { t } = useTranslation();
   const apply = useUpdate((s) => s.apply);
   if (!apply) return null;
   return (
-    <Button
-      size="xl"
-      variant="outline"
-      data-testid="update-app"
-      onClick={() => {
-        asked = true;
-        apply();
-      }}
-    >
+    <Button size="xl" variant="outline" data-testid="update-app" onClick={() => applyUpdate(apply)}>
       <RefreshCw /> {t("floor.header.update")}
     </Button>
   );

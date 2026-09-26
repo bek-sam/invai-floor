@@ -1,5 +1,6 @@
+import { CONTRACT_VERSION } from "@invai/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ApiFailure } from "../api/errors";
+import { ApiFailure, classifyStatus } from "../api/errors";
 import type { ScanInput, ScanResult } from "../api/types";
 import { uuid } from "../lib/uuid";
 import { FloorDB, type OutboxCommand, type OutboxEntry } from "./db";
@@ -9,6 +10,7 @@ import {
   discardEntry,
   enqueue,
   flushOutbox,
+  isStaleVersion,
   MAX_ATTEMPTS,
   parkedCount,
   parkForForgottenStation,
@@ -497,6 +499,82 @@ describe("sync engine", () => {
     const out = await engine.submit(scan("T:1"), ana);
     expect(out.status).toBe("sent");
     expect(useSyncStore.getState().alerts).toEqual([]);
+    engine.stop();
+  });
+});
+
+describe("contract version (T-13-1)", () => {
+  const OLD = "0.2.0";
+  const NOW = "0.3.0";
+  const all = () => db.outbox.orderBy("seq").toArray();
+
+  it("classifies CLIENT_TOO_OLD / 426 as tooOld, never retried", () => {
+    expect(classifyStatus(426, "CLIENT_TOO_OLD")).toBe("tooOld");
+    expect(classifyStatus(undefined, "CLIENT_TOO_OLD")).toBe("tooOld");
+    expect(new ApiFailure("tooOld", "CLIENT_TOO_OLD", "old", 426).retryable).toBe(false);
+  });
+
+  it("stamps each entry with the contract version it was saved under", async () => {
+    const e = await enqueue(scan("T:1"), session, db);
+    expect(e.contractVersion).toBe(CONTRACT_VERSION);
+    const old = await enqueue(scan("T:2"), session, db, null, OLD);
+    expect(old.contractVersion).toBe(OLD);
+  });
+
+  it("an old entry the server still accepts replays normally", async () => {
+    const server = fakeServer();
+    await enqueue(scan("T:1"), session, db, null, OLD);
+    const report = await flushOutbox(server.send, { db, appVersion: NOW });
+    expect(report.sent).toBe(1);
+    expect(server.applied).toEqual(["T:1"]);
+  });
+
+  it("an old entry the server refuses parks as stale_version; a current one as rejected", async () => {
+    const server = fakeServer();
+    await enqueue(scan("T:bad"), session, db, null, OLD);
+    await enqueue(scan("T:bad"), session, db, null, NOW);
+    // Rows from before the handshake have no stamp: older than any version.
+    const legacy = await enqueue(scan("T:bad"), session, db, null, NOW);
+    await db.outbox.update(legacy.seq as number, { contractVersion: undefined });
+    const report = await flushOutbox(server.send, { db, appVersion: NOW });
+    expect(report.parked.map((e) => e.parkReason)).toEqual([
+      "stale_version",
+      "rejected",
+      "stale_version",
+    ]);
+    expect(isStaleVersion({ contractVersion: OLD }, NOW)).toBe(true);
+    expect(isStaleVersion({ contractVersion: NOW }, NOW)).toBe(false);
+  });
+
+  it("CLIENT_TOO_OLD stops the flush and keeps everything pending, without an attempt", async () => {
+    const send = async () => {
+      throw new ApiFailure("tooOld", "CLIENT_TOO_OLD", "old", 426, { minVersion: "9.0.0" });
+    };
+    await enqueue(scan("T:1"), session, db);
+    await enqueue(scan("T:2"), session, db);
+    const report = await flushOutbox(send, { db });
+    expect(report.stoppedBy?.kind).toBe("tooOld");
+    expect(report.parked).toEqual([]);
+    expect((await all()).map((e) => [e.status, e.attempts])).toEqual([
+      ["pending", 0],
+      ["pending", 0],
+    ]);
+  });
+
+  it("the sync engine raises the lead alert for a stale_version park", async () => {
+    const server = fakeServer();
+    const alerted: OutboxEntry[][] = [];
+    const engine = new SyncEngine({
+      send: server.send,
+      db,
+      currentSession: () => null,
+      onReplayRejected: (e) => alerted.push(e),
+    });
+    useSyncStore.setState({ alerts: [] });
+    await enqueue(scan("T:bad"), session, db, null, "0.0.1");
+    await engine.flush();
+    expect(useSyncStore.getState().alerts.map((e) => e.parkReason)).toEqual(["stale_version"]);
+    expect(alerted).toHaveLength(1);
     engine.stop();
   });
 });

@@ -1,8 +1,9 @@
-import type { Contract } from "@invai/contracts";
+import { CONTRACT_VERSION, type Contract } from "@invai/contracts";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
 import { API_URL } from "../lib/config";
+import { reportTooOld } from "../screens/UpdateNeededScreen";
 import { ApiFailure, toFailure } from "./errors";
 import type { FloorApi, PackOrderResult } from "./types";
 
@@ -28,8 +29,12 @@ export function packIncompleteMissing(err: unknown): PackOrderResult["missing"] 
 export function createRpcApi(): FloorApi {
   const link = new RPCLink<Ctx>({
     url: rpcUrl,
-    headers: ({ context }) =>
-      context.auth ? { Authorization: `${context.auth.scheme} ${context.auth.token}` } : {},
+    // Every request says which contract it speaks, so the server can refuse an old tablet
+    // (CLIENT_TOO_OLD) instead of letting it write old shapes after a deploy (T-13-1).
+    headers: ({ context }) => ({
+      "X-Contract-Version": CONTRACT_VERSION,
+      ...(context.auth ? { Authorization: `${context.auth.scheme} ${context.auth.token}` } : {}),
+    }),
   });
   const client: ContractRouterClient<Contract, Ctx> = createORPCClient(link);
 
@@ -53,7 +58,9 @@ export function createRpcApi(): FloorApi {
       ) {
         throw new ApiFailure("offline", "TIMEOUT", "The server took too long to answer");
       }
-      throw toFailure(err);
+      const failure = toFailure(err);
+      if (failure.kind === "tooOld") reportTooOld(failure.data);
+      throw failure;
     }
   }
 

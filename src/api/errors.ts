@@ -5,8 +5,10 @@
  *   NOT_IMPLEMENTED (or 5xx); keep queued and retry later.
  * - `auth`: the floor session expired or was revoked; ask for the PIN again.
  * - `rejected`: the server refused this specific request (4xx); retrying won't help.
+ * - `tooOld`: the server refuses this app version (CLIENT_TOO_OLD, 426). Nothing is retried or
+ *   parked; the tablet shows "Update needed" and the outbox waits for the new version (T-13-1).
  */
-export type FailureKind = "offline" | "unavailable" | "auth" | "rejected";
+export type FailureKind = "offline" | "unavailable" | "auth" | "rejected" | "tooOld";
 
 export class ApiFailure extends Error {
   constructor(
@@ -27,6 +29,7 @@ export class ApiFailure extends Error {
 
 export function classifyStatus(status: number | undefined, code: string): FailureKind {
   if (code === "NOT_IMPLEMENTED" || code === "RATE_LIMITED") return "unavailable";
+  if (status === 426 || code === "CLIENT_TOO_OLD") return "tooOld";
   if (status === undefined || status === 0) return "offline";
   if (status === 401 || code === "UNAUTHORIZED") return "auth";
   if (status === 408 || status === 429 || status >= 500) return "unavailable";

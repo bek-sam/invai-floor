@@ -194,6 +194,12 @@ function describeError(e: OutboxEntry, t: TFunction): string {
       return t("floor.outbox.reason.session", { name: e.staffName });
     case "station_forgotten":
       return t("floor.outbox.reason.station_forgotten");
+    case "stale_version":
+      return t("floor.outbox.reason.stale_version", {
+        error: t(`floor.outbox.code.${code}`, {
+          defaultValue: t("floor.outbox.code.other", { code: code || "?" }),
+        }),
+      });
     case "rejected":
       return t("floor.outbox.reason.rejected", {
         error: t(`floor.outbox.code.${code}`, {

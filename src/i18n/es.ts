@@ -24,6 +24,13 @@ export const es: FloorStrings = {
       "Esta tableta se quitó en InvAI. Vuelve a vincularla con un nuevo código QR de estación.",
     connected: "Estación conectada",
   },
+  updateNeeded: {
+    title: "Hace falta actualizar",
+    body: "Esta app está desactualizada. Actualícela para seguir trabajando. Los escaneos guardados en esta tableta se conservan y se enviarán después de actualizar.",
+    button: "Actualizar app",
+    checking: "Buscando la actualización…",
+    versions: "Esta app: {{current}} · Se necesita: {{min}}",
+  },
   login: {
     title: "Ingresa tu PIN",
     wrongPin: "PIN no reconocido",
@@ -90,6 +97,8 @@ export const es: FloorStrings = {
       gave_up: "El servidor siguió fallando. Se intentó {{max}} veces.",
       session: "La sesión de {{name}} terminó. {{name}} puede entrar aquí para enviarlo.",
       station_forgotten: "Se guardó en una estación olvidada. No se enviará.",
+      stale_version:
+        "Se guardó en una versión anterior de la app y el servidor ya no lo acepta: {{error}}. Revise esta unidad a mano.",
     },
     code: {
       FORBIDDEN: "esta persona no tiene permiso para esto",

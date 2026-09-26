@@ -1,3 +1,4 @@
+import { CONTRACT_VERSION, compareContractVersions } from "@invai/contracts";
 import { type ApiFailure, toFailure } from "../api/errors";
 import { uuid } from "../lib/uuid";
 import {
@@ -62,6 +63,7 @@ export async function enqueue(
   author: Pick<EntryAuthor, "sessionToken" | "staffName"> & Partial<EntryAuthor>,
   db: FloorDB = floorDb,
   unit: OutboxUnit | null = null,
+  contractVersion: string = CONTRACT_VERSION,
 ): Promise<OutboxEntry> {
   const entry: OutboxEntry = {
     id: commandId(command),
@@ -71,6 +73,7 @@ export async function enqueue(
     staffId: author.staffId ?? null,
     stationId: author.stationId ?? null,
     createdAt: new Date().toISOString(),
+    contractVersion,
     status: "pending",
     attempts: 0,
     lastError: null,
@@ -103,15 +106,25 @@ function countsAsAttempt(failure: ApiFailure): boolean {
  * - Sign-in ended (401): re-sent only under the same person's new session on the same
  *   station; otherwise parked. Never sent as whoever is signed in now.
  * - A replayed scan the server BLOCKED is parked so a lead sees it.
+ * - Saved under an older app version and refused (any 4xx): parked as `stale_version` (lead
+ *   alert), not `rejected`. If the server still accepts the old shape, it is simply sent.
+ * - CLIENT_TOO_OLD (this app is too old): stop, keep everything pending, don't count an attempt.
+ *   The tablet shows "Update needed"; the new version sends them.
  *
  * Idempotency is the server's job: a scan replayed with the same clientScanId returns its
  * original result, so a crash between "sent" and "marked done" is harmless.
  */
 export async function flushOutbox(
   send: CommandSender,
-  opts: { db?: FloorDB; currentSession?: () => CurrentSession | null } = {},
+  opts: {
+    db?: FloorDB;
+    currentSession?: () => CurrentSession | null;
+    /** The running app's contract version (tests override it). */
+    appVersion?: string;
+  } = {},
 ): Promise<FlushReport> {
   const db = opts.db ?? floorDb;
+  const appVersion = opts.appVersion ?? CONTRACT_VERSION;
   const report: FlushReport = { sent: 0, parked: [], stoppedBy: null };
   const pending = await db.outbox.where("status").equals("pending").sortBy("seq");
 
@@ -161,6 +174,8 @@ export async function flushOutbox(
             errorCode: failure.code,
           });
           report.sent++;
+        } else if (isStaleVersion(entry, appVersion)) {
+          await park(entry, "stale_version", failed);
         } else {
           await park(entry, "rejected", failed);
         }
@@ -183,6 +198,14 @@ export async function flushOutbox(
   }
   await pruneDone(db);
   return report;
+}
+
+/** Saved under an older contract version than the running app (or before versions existed). */
+export function isStaleVersion(
+  entry: Pick<OutboxEntry, "contractVersion">,
+  appVersion: string = CONTRACT_VERSION,
+): boolean {
+  return compareContractVersions(entry.contractVersion ?? null, appVersion) < 0;
 }
 
 /** A scan or "Mark packed" saved offline that the server blocked on replay is parked. */

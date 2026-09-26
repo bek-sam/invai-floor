@@ -32,8 +32,16 @@ export type OutboxStatus = "pending" | "done" | "parked" | "failed";
  * - `session`: the staff member's sign-in ended before it was sent. It resumes when the same
  *   person signs in on the same station, or a lead sends it under their own name.
  * - `station_forgotten`: the station was forgotten with this entry unsent. It is never sent.
+ * - `stale_version`: saved under an older app version, and the server refused it (any 4xx) after
+ *   the update: its shape is no longer accepted. A lead is alerted (T-13-1, ADR 0012).
  */
-export type ParkReason = "rejected" | "gave_up" | "blocked" | "session" | "station_forgotten";
+export type ParkReason =
+  | "rejected"
+  | "gave_up"
+  | "blocked"
+  | "session"
+  | "station_forgotten"
+  | "stale_version";
 
 /** What the entry was about, in shop words, captured from the cached queue when it was made. */
 export type OutboxUnit = {
@@ -61,6 +69,11 @@ export type OutboxEntry = {
   lastError: string | null;
   /** Machine-readable error (oRPC code, or the mismatch reason for a BLOCKED replay). */
   errorCode?: string | null;
+  /**
+   * The contract version (`CONTRACT_VERSION`) the app ran when the entry was saved. Missing on
+   * rows from before the handshake (read as older than any version).
+   */
+  contractVersion?: string | null;
   /** Read `undefined` (rows from before parking) the same as `null`. */
   parkedAt?: string | null;
   parkReason?: ParkReason | null;

@@ -21,6 +21,13 @@ export const en = {
     connected: "Station connected",
     removed: "This tablet was removed in InvAI. Pair it again with a new station QR code.",
   },
+  updateNeeded: {
+    title: "Update needed",
+    body: "This app is out of date. Update it to keep working. Scans saved on this tablet are kept and will send after the update.",
+    button: "Update app",
+    checking: "Looking for the update…",
+    versions: "This app: {{current}} · Needed: {{min}}",
+  },
   login: {
     title: "Enter your PIN",
     wrongPin: "PIN not recognized",
@@ -86,6 +93,8 @@ export const en = {
       gave_up: "The server kept failing. Tried {{max}} times.",
       session: "{{name}}'s sign-in ended. {{name}} can sign in here to send it.",
       station_forgotten: "Saved on a station that was forgotten. It will not be sent.",
+      stale_version:
+        "Saved on an older version of the app, and the server no longer accepts it: {{error}}. Check this unit by hand.",
     },
     code: {
       FORBIDDEN: "this person isn't allowed to do this",
