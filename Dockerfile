@@ -15,8 +15,11 @@ COPY invai-floor/. .
 ARG VITE_API_URL=http://localhost:3000
 ENV VITE_API_URL=${VITE_API_URL}
 RUN pnpm build
+# nginx.conf's CSP connect-src is templated from the same VITE_API_URL the build just used
+# (T-12-5 review r1), so the header nginx sends matches the origin the built app actually calls.
+RUN node scripts/render-nginx-conf.ts
 
 FROM nginx:alpine
 COPY --from=build /build/invai-floor/dist /usr/share/nginx/html
-COPY invai-floor/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /build/invai-floor/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
