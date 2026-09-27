@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Contract } from "@invai/contracts";
+import { CONTRACT_VERSION, CONTRACT_VERSION_HEADER, type Contract } from "@invai/contracts";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
@@ -19,7 +19,11 @@ export const OWNER_PIN = "1111";
 export function client(authorization: string): ContractRouterClient<Contract> {
   const link = new RPCLink({
     url: `${API_URL}/rpc`,
-    headers: { authorization, origin: "http://localhost:5174" },
+    headers: {
+      authorization,
+      origin: "http://localhost:5174",
+      [CONTRACT_VERSION_HEADER]: CONTRACT_VERSION,
+    },
   });
   return createORPCClient(link);
 }
