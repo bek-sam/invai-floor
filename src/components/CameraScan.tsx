@@ -19,6 +19,11 @@ export function CameraScan() {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
   const detectorRef = useRef<BarcodeDetector | null>(null);
+  // True only while the dialog is open (or opening). Set false by close() and the unmount
+  // cleanup, and checked right after getUserMedia resolves so a stream granted after the dialog
+  // was closed (or the component unmounted) gets its tracks stopped immediately instead of being
+  // assigned and started (S-44).
+  const openRef = useRef(false);
 
   function stop() {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -61,11 +66,18 @@ export function CameraScan() {
     }
     setError(null);
     setOpen(true);
+    openRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
         audio: false,
       });
+      if (!openRef.current) {
+        // The dialog was closed (or the component unmounted) while the permission prompt was
+        // pending. Stop the stream we just got and don't assign it or start the detect loop.
+        for (const track of stream.getTracks()) track.stop();
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -74,12 +86,13 @@ export function CameraScan() {
       detectorRef.current = new Detector();
       loop();
     } catch {
-      setError(t("floor.camera.permissionDenied"));
+      if (openRef.current) setError(t("floor.camera.permissionDenied"));
       stop();
     }
   }
 
   function close() {
+    openRef.current = false;
     stop();
     setOpen(false);
   }
@@ -87,6 +100,7 @@ export function CameraScan() {
   // Release the camera if the component unmounts mid-scan (refs only: stable across renders).
   useEffect(() => {
     return () => {
+      openRef.current = false;
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       for (const track of streamRef.current?.getTracks() ?? []) track.stop();
     };
