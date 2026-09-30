@@ -23,6 +23,10 @@ export type ResultView = {
   provisional: boolean;
   /** Waiting in the outbox, not yet checked by anyone. */
   queued: boolean;
+  /** DTF transfers lose adhesion as they age (B-35): past the org's warn threshold, shown on
+   * pick/press, never blocking. */
+  transferAgeWarning: boolean;
+  transferAgeDays: number | null;
 };
 
 type BlankLike = { brand: string; style: string; color: string; size: string };
@@ -45,6 +49,8 @@ const EMPTY: Omit<ResultView, "tone"> = {
   orderOpenUnits: null,
   provisional: false,
   queued: false,
+  transferAgeWarning: false,
+  transferAgeDays: null,
 };
 
 export function viewFromResult(r: ScanResult): ResultView {
@@ -63,6 +69,8 @@ export function viewFromResult(r: ScanResult): ResultView {
     orderOpenUnits: r.orderOpenUnits,
     provisional: false,
     queued: false,
+    transferAgeWarning: r.transferAgeWarning ?? false,
+    transferAgeDays: r.transferAgeDays ?? null,
   };
 }
 
@@ -75,6 +83,8 @@ export function viewFromPreview(p: QueueItem | null): Partial<ResultView> {
     placement: p.placement,
     binCode: p.binCode,
     isReprint: p.isReprint,
+    transferAgeWarning: p.transferAgeWarning ?? false,
+    transferAgeDays: p.transferAgeDays ?? null,
   };
 }
 

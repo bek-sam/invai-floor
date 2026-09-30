@@ -34,28 +34,30 @@ const STAFF = [
 ] as const;
 
 type Blank = QueueItem["blank"];
-const blank = (n: number, style: string, color: string, size: string): Blank => ({
+const blank = (
+  n: number,
+  style: string,
+  color: string,
+  size: string,
+  shelf: string,
+  binCode: string | null = null,
+): Blank => ({
   variantId: uid(2, n),
   brand: style === "1717" ? "Comfort Colors" : style === "3001" ? "Bella+Canvas" : "Gildan",
   style,
   color,
   size,
+  shelf,
+  binCode,
 });
 const BLANKS = {
-  blackL: blank(1, "64000", "Black", "L"),
-  blackM: blank(2, "64000", "Black", "M"),
-  whiteL: blank(3, "64000", "White", "L"),
-  pepperXL: blank(4, "1717", "Pepper", "XL"),
-  sandS: blank(5, "3001", "Heather Dust", "S"),
-  sageM: blank(6, "1717", "Sage", "M"),
-};
-export const DEMO_SHELVES: Record<string, string> = {
-  [BLANKS.blackL.variantId]: "A-03",
-  [BLANKS.blackM.variantId]: "A-02",
-  [BLANKS.whiteL.variantId]: "B-07",
-  [BLANKS.pepperXL.variantId]: "C-11",
-  [BLANKS.sandS.variantId]: "D-01",
-  [BLANKS.sageM.variantId]: "C-04",
+  blackL: blank(1, "64000", "Black", "L", "A-03"),
+  blackM: blank(2, "64000", "Black", "M", "A-02"),
+  whiteL: blank(3, "64000", "White", "L", "B-07"),
+  pepperXL: blank(4, "1717", "Pepper", "XL", "C-11"),
+  sandS: blank(5, "3001", "Heather Dust", "S", "D-01"),
+  // Kept in a bin on the shelf too (B-32): shows both the shelf and the bin on the pick list.
+  sageM: blank(6, "1717", "Sage", "M", "C-04", "BIN-12"),
 };
 
 const DESIGNS = [
@@ -65,7 +67,14 @@ const DESIGNS = [
   { id: uid(3, 4), name: "Mama Bloom (custom)", code: "MB-P1", color: "#db2777" },
 ];
 
-type DemoItem = QueueItem & { cancelled?: boolean; picked?: boolean };
+type DemoItem = QueueItem & {
+  cancelled?: boolean;
+  picked?: boolean;
+  /** Demo-only (T-23-2): this order's station is always blocked with `station_maintenance`, so
+   * the maintenance-blocked screen, its sound and the offline-replay park can be exercised
+   * without a real maintenance window. Never used by the real backend. */
+  demoMaintenanceStation?: Station;
+};
 
 function makeItems(): DemoItem[] {
   const shipBy = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
@@ -76,10 +85,13 @@ function makeItems(): DemoItem[] {
     state: OrderItemState,
     b: Blank,
     d: number,
-    extra: Partial<DemoItem> = {},
+    extra: Partial<DemoItem> & { transferAgeDays?: number } = {},
   ): DemoItem => {
     n++;
     const design = DESIGNS[d] ?? DESIGNS[0];
+    // DTF transfers lose adhesion as they age (B-35): most demo transfers are fresh; a few are
+    // aged past the 30-day default so the pick/press warning has something to show.
+    const ageDays = extra.transferAgeDays ?? 5;
     return {
       orderItemId: uid(4, n),
       orderId: uid(5, orderN),
@@ -97,6 +109,9 @@ function makeItems(): DemoItem[] {
       sheetName: "2026-09-24 #1",
       binCode: null,
       orderOpenUnits: 1,
+      transferPrintedAt: new Date(Date.now() - ageDays * 86_400_000).toISOString(),
+      transferAgeDays: ageDays,
+      transferAgeWarning: ageDays > 30,
       ...extra,
     };
   };
@@ -104,7 +119,7 @@ function makeItems(): DemoItem[] {
     item("#1042", 1, "transfer_in", BLANKS.blackL, 0),
     item("#1042", 1, "transfer_in", BLANKS.whiteL, 1),
     item("#1043", 2, "transfer_in", BLANKS.pepperXL, 2, { placement: "back" }),
-    item("#1044", 3, "transfer_in", BLANKS.blackM, 0),
+    item("#1044", 3, "transfer_in", BLANKS.blackM, 0, { transferAgeDays: 45 }),
     item("#1045", 4, "transfer_in", BLANKS.sandS, 3, { placement: "left_chest", isReprint: true }),
     item("#1046", 5, "on_hold", BLANKS.blackL, 1),
     item("#1047", 6, "transfer_in", BLANKS.sageM, 2, { cancelled: true }),
@@ -116,6 +131,8 @@ function makeItems(): DemoItem[] {
     item("#1050", 9, "pressed", BLANKS.whiteL, 1, { binCode: "T-09" }),
     item("#1051", 10, "transfer_in", BLANKS.whiteL, 0),
     item("#1052", 11, "transfer_in", BLANKS.blackL, 2),
+    // Uses the bin-kept blank (BLANKS.sageM) so the pick list's bin column has something to show.
+    item("#1053", 12, "transfer_in", BLANKS.sageM, 1, { demoMaintenanceStation: "press" }),
   ];
   return items;
 }
@@ -201,6 +218,8 @@ export function createDemoApi(): FloorApi {
       itemState: item?.state ?? null,
       nextAction: "nothing",
       orderOpenUnits: item ? openUnits(item.orderId) : null,
+      transferAgeDays: item?.transferAgeDays ?? null,
+      transferAgeWarning: item?.transferAgeWarning ?? false,
     };
     const fail = (mismatch: MismatchReason, message: string): ScanResult => ({
       ...base,
@@ -208,6 +227,10 @@ export function createDemoApi(): FloorApi {
       message,
     });
     if (!item) return fail("unknown_transfer", "No transfer with this code");
+    // A station under maintenance blocks every scan there, regardless of what else is true
+    // about the unit (B-35, T-23-2): checked before cancelled/on_hold, just like the real backend.
+    if (item.demoMaintenanceStation === input.station)
+      return fail("station_maintenance", "This station is under maintenance. Ask a lead.");
     if (item.cancelled)
       return fail(
         "item_cancelled",
@@ -377,7 +400,7 @@ export function createDemoApi(): FloorApi {
       const list: QueueItem[] = items
         .filter((i) => inQueue(station, i, boxed))
         .filter((i) => station !== "pack" || !handedToLead.has(i.orderId))
-        .map(({ cancelled: _c, picked: _p, ...i }) => ({
+        .map(({ cancelled: _c, picked: _p, demoMaintenanceStation: _m, ...i }) => ({
           ...i,
           orderOpenUnits: openUnits(i.orderId),
         }));
@@ -499,8 +522,6 @@ export function createDemoApi(): FloorApi {
       item.state = "ready";
       item.isReprint = true;
     },
-
-    shelfOf: (variantId) => DEMO_SHELVES[variantId] ?? null,
 
     async orderLabelUrl(token, orderId) {
       auth(token);

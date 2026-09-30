@@ -58,6 +58,4 @@ export interface FloorApi {
     reason: ReprintReason,
     note: string | null,
   ): Promise<void>;
-  /** Shelf/bin location of a blank for the pick list; the contract has none yet (null). */
-  shelfOf(blankVariantId: string): string | null;
 }

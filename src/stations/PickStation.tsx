@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { QueueItem, ScanResult } from "../api/types";
 import { submit } from "../app/actions";
-import { useApp, useSession } from "../app/store";
+import { useSession } from "../app/store";
 import { ResultPanel } from "../components/ResultPanel";
 import { invalidateQueues, useStationQueue } from "../hooks/useStationQueue";
 import { parseCode } from "../lib/codes";
@@ -12,9 +12,9 @@ import { feedback } from "../lib/feedback";
 import { uuid } from "../lib/uuid";
 import { refusalText } from "../scan/result";
 import { useScan } from "../scanner/useWedgeScanner";
-import { Badges, QueueFooter } from "./common";
+import { AgeWarning, Badges, QueueFooter } from "./common";
 
-type Group = { key: string; blank: QueueItem["blank"]; items: QueueItem[]; shelf: string | null };
+type Group = { key: string; blank: QueueItem["blank"]; items: QueueItem[] };
 
 type PickView =
   | {
@@ -29,7 +29,6 @@ type PickView =
 export function PickStation() {
   const { t } = useTranslation();
   const session = useSession();
-  const api = useApp((s) => s.api);
   const queue = useStationQueue("pick");
   const [view, setView] = useState<PickView>({ phase: "list", selected: null, message: null });
 
@@ -37,7 +36,7 @@ export function PickStation() {
     const map = new Map<string, Group>();
     for (const item of queue.items) {
       const key = item.blank.variantId;
-      const g = map.get(key) ?? { key, blank: item.blank, items: [], shelf: api.shelfOf(key) };
+      const g = map.get(key) ?? { key, blank: item.blank, items: [] };
       g.items.push(item);
       map.set(key, g);
     }
@@ -47,7 +46,7 @@ export function PickStation() {
         a.blank.color.localeCompare(b.blank.color) ||
         a.blank.size.localeCompare(b.blank.size),
     );
-  }, [queue.items, api]);
+  }, [queue.items]);
 
   async function pick(group: Group, blankCode: string) {
     const item = group.items[0];
@@ -167,7 +166,14 @@ export function PickStation() {
                   selected === g.key && "bg-accent outline outline-2 outline-primary",
                 )}
               >
-                <td className="px-6 py-4 font-mono font-bold">{g.shelf ?? "—"}</td>
+                <td className="px-6 py-4 font-mono font-bold">
+                  {g.blank.shelf ?? "—"}
+                  {g.blank.binCode && (
+                    <div className="text-sm font-normal text-muted-foreground">
+                      {t("floor.pick.binLabel", { bin: g.blank.binCode })}
+                    </div>
+                  )}
+                </td>
                 <td className="px-2 py-4">
                   <span className="mr-2 rounded-lg bg-foreground px-3 py-1 font-black text-background">
                     {g.blank.size}
@@ -188,6 +194,7 @@ export function PickStation() {
                         {i.orderNo}
                         {i.binCode && <span className="text-muted-foreground">→ {i.binCode}</span>}
                         <Badges item={i} />
+                        <AgeWarning item={i} />
                       </span>
                     ))}
                   </div>

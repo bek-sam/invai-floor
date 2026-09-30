@@ -1,5 +1,5 @@
 import { cn } from "@invai/ui";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { QueueItem } from "../api/types";
 import type { QueueState } from "../hooks/useStationQueue";
@@ -20,6 +20,23 @@ export function Badges({ item }: { item: Pick<QueueItem, "isRush" | "isReprint">
         </span>
       )}
     </>
+  );
+}
+
+/** DTF transfers lose adhesion as they age (B-35): a non-blocking heads-up on pick/press when
+ * the org's warn threshold is passed. Never used to refuse a press -- only a scan mismatch does. */
+export function AgeWarning({
+  item,
+}: {
+  item: { transferAgeWarning?: boolean; transferAgeDays?: number | null };
+}) {
+  const { t } = useTranslation();
+  if (!item.transferAgeWarning) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-warning px-2 py-0.5 text-sm font-black text-warning-foreground">
+      <TriangleAlert className="size-3.5" aria-hidden />
+      {t("floor.common.transferAge", { count: item.transferAgeDays ?? 0 })}
+    </span>
   );
 }
 

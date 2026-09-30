@@ -19,7 +19,9 @@ const S3_ORIGIN = "http://localhost:9000"; // local MinIO; presigned image URLs 
 const securityHeaders = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  // `camera=(self)` (T-23-2, B-105): the optional camera-scan button calls getUserMedia on this
+  // same origin, nowhere else, so no legitimate caller needs it granted to any other origin.
+  "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=()",
   // Meaningless over plain http, but a browser only obeys it over https anyway, so it's safe to
   // always send -- and it must match the API's header exactly once TLS terminates in front of us.
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",

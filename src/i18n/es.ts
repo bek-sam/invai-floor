@@ -160,6 +160,14 @@ export const es: FloorStrings = {
     scanned: "Escaneado",
     units: "{{count}} piezas",
     sent: "Enviado",
+    transferAge: "Transferencia vieja ({{count}}d)",
+  },
+  camera: {
+    open: "Escanear con cámara",
+    title: "Apunta la cámara al código",
+    hint: "Mantén el código dentro del cuadro",
+    notSupported: "El escaneo con cámara no está disponible en esta tableta. Usa el escáner.",
+    permissionDenied: "No se puede usar la cámara. Revisa el permiso de cámara, o usa el escáner.",
   },
   placement: {
     front: "Frente",
@@ -208,6 +216,7 @@ export const es: FloorStrings = {
     stale_scan: "Escaneo desactualizado",
     blank_required: "Escanea también la prenda",
     pack_incomplete: "todavía faltan prendas del pedido",
+    station_maintenance: "Plancha en mantenimiento. Avísale a un encargado.",
   },
   local: {
     cannot_verify: "No se puede verificar sin conexión",
@@ -228,6 +237,7 @@ export const es: FloorStrings = {
     useTote: "Ponlo en la caja {{bin}}",
     picked: "Recogido",
     location: "Estante",
+    binLabel: "Compartimento {{bin}}",
     noMatch: "Ningún pedido de la lista necesita esta prenda",
     skipTote: "Sin caja",
     binOccupied: "La caja {{bin}} tiene el pedido {{orderNo}}",
@@ -258,6 +268,8 @@ export const es: FloorStrings = {
     customer_request: "Lo pidió el cliente",
     lost: "Transferencia perdida",
     other: "Otro",
+    under_cure: "No curó por completo",
+    cracking: "Se agrieta al estirar",
   },
   pack: {
     title: "Empacar",

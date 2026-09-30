@@ -156,6 +156,14 @@ export const en = {
     scanned: "Scanned",
     units: "{{count}} units",
     sent: "Sent",
+    transferAge: "Old transfer ({{count}}d)",
+  },
+  camera: {
+    open: "Scan with camera",
+    title: "Point the camera at the code",
+    hint: "Hold the code inside the frame",
+    notSupported: "Camera scanning isn't available on this tablet. Use the scanner instead.",
+    permissionDenied: "Can't use the camera. Check camera permission, or use the scanner instead.",
   },
   placement: {
     front: "Front",
@@ -205,6 +213,7 @@ export const en = {
     stale_scan: "Out-of-date scan",
     blank_required: "Scan the blank too",
     pack_incomplete: "units of the order are still missing",
+    station_maintenance: "Press under maintenance. Ask a lead.",
   },
   local: {
     cannot_verify: "Can't verify offline",
@@ -225,6 +234,7 @@ export const en = {
     useTote: "Put it in tote {{bin}}",
     picked: "Picked",
     location: "Shelf",
+    binLabel: "Bin {{bin}}",
     noMatch: "No order in the pick list needs this blank",
     skipTote: "No tote",
     binOccupied: "Tote {{bin}} holds order {{orderNo}}",
@@ -255,6 +265,8 @@ export const en = {
     customer_request: "Customer asked",
     lost: "Transfer lost",
     other: "Other",
+    under_cure: "Didn't cure all the way",
+    cracking: "Cracks when stretched",
   },
   pack: {
     title: "Pack",

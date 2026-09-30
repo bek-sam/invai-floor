@@ -31,7 +31,7 @@ import {
   refusalText,
 } from "../scan/result";
 import { useScan } from "../scanner/useWedgeScanner";
-import { Badges, BlankChips, Prompt, QueueFooter } from "./common";
+import { AgeWarning, Badges, BlankChips, Prompt, QueueFooter } from "./common";
 
 /**
  * Press: scan the transfer QR, then the blank or tote label. The server checks design, size
@@ -233,7 +233,7 @@ export function PressStation() {
                 <Thumbnail fileKey={item.artworkPreviewKey} alt="" className="size-14 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-xl font-bold">
-                    {item.orderNo} <Badges item={item} />
+                    {item.orderNo} <Badges item={item} /> <AgeWarning item={item} />
                   </div>
                   <div className="truncate text-muted-foreground">{item.design.name}</div>
                   <BlankChips blank={item.blank} className="mt-1 text-sm" />
@@ -301,6 +301,7 @@ function TransferCard({ code, item }: { code: string; item: QueueItem | null }) 
         <div className="flex items-center gap-3">
           <span className="text-6xl font-black">{item.orderNo}</span>
           <Badges item={item} />
+          <AgeWarning item={item} />
         </div>
         <p className="truncate text-3xl font-semibold">
           {item.design.name}{" "}
@@ -389,6 +390,12 @@ function PressResult({
         )}
         {view.tone === "ok" && view.expected && (
           <p className="text-3xl font-semibold">{view.expected}</p>
+        )}
+        {view.tone === "ok" && view.transferAgeWarning && (
+          <p className="mt-2 flex items-center gap-2 rounded-lg bg-black/15 px-4 py-2 font-bold">
+            <TriangleAlert className="size-6" aria-hidden />
+            {t("floor.common.transferAge", { count: view.transferAgeDays ?? 0 })}
+          </p>
         )}
         {view.message && <p className="opacity-80">{view.message}</p>}
         {view.provisional && view.tone !== "warn" && (

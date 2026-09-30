@@ -16,6 +16,7 @@ import { Lock, Menu, Package, ScanLine, ShieldCheck, Shirt, Truck, Users } from 
 import { useTranslation } from "react-i18next";
 import { lock, setActiveStation, setAutoLockMinutes } from "../app/actions";
 import { useApp, useSession } from "../app/store";
+import { CameraScan } from "../components/CameraScan";
 import { LangToggle } from "../components/LangToggle";
 import { OfflineStrip, SyncStatus } from "../components/SyncStatus";
 import { UpdatePrompt } from "../components/UpdatePrompt";
@@ -86,6 +87,7 @@ export function StationShell() {
         actions={
           <>
             <UpdatePrompt />
+            <CameraScan />
             <SyncStatus hideOnline />
             <LangToggle />
             <Button

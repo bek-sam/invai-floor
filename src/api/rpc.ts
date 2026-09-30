@@ -151,7 +151,5 @@ export function createRpcApi(): FloorApi {
       call(async () => {
         await client.production.reprints.request({ orderItemId, reason, note }, bearer(token));
       }),
-
-    shelfOf: () => null,
   };
 }
