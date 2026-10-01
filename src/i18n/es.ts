@@ -44,9 +44,13 @@ export const es: FloorStrings = {
     update: "Actualizar app",
     switchStaff: "Cambiar",
     // Short on purpose (B-241): with the "needs review" pill showing too, the long form wrapped
-    // to two lines at 1280x800. "{{count}} por enviar" reuses the outbox's own "enviar" word.
-    pending_one: "{{count}} por enviar",
-    pending_other: "{{count}} por enviar",
+    // to two lines at 1280x800. Round 2 (review r1 finding 1): "por enviar" alone read as
+    // "N orders to ship" (glossary: enviar = shipping), not "N scans still on this tablet" — the
+    // warning a presser near the shipping table most needs to get right. Restored "escaneo(s)"
+    // and used "sin enviar" (matches this catalog's own `outbox.title: "Sin enviar"`) instead of
+    // "por enviar", which still fits one line at 1280x800 (confirmed by screenshot).
+    pending_one: "{{count}} escaneo sin enviar",
+    pending_other: "{{count}} escaneos sin enviar",
     synced: "Todo sincronizado",
     live: "En vivo",
     notLive: "Reconectando",
@@ -64,9 +68,14 @@ export const es: FloorStrings = {
     sessionExpired: "Tu sesión expiró. Ingresa tu PIN para sincronizar los escaneos guardados.",
   },
   outbox: {
-    // Short on purpose (B-241): shown next to the "por enviar" pill, so it must fit on one line
+    // Short on purpose (B-241): shown next to the "sin enviar" pill, so it must fit on one line
     // at 1280x800 too. The longer "necesita(n) revisión" stays in the detail sheet's own status
     // line (`status.parked` below), where there's room.
+    // Round 2 (review r1 optional note): kept as "por revisar" on purpose. "revisar" here means
+    // the generic "to review/check" of the English "need(s) a check", not the QC station's own
+    // "control de calidad" term, so it isn't the same word a presser at QC reads for their own
+    // inspection queue. Changing it risked drifting from "need review" with no clear win; flag to
+    // product-designer if QC-station pilots report confusion.
     parked_one: "{{count}} por revisar",
     parked_other: "{{count}} por revisar",
     title: "Sin enviar",
