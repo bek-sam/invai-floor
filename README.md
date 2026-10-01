@@ -14,7 +14,7 @@ pnpm dev --open "/?demo=1"   # built-in demo backend, no server needed
 - **Stations:** pick (grouped by blank, tote assignment), press (transfer QR → blank/tote → PRESS/BLOCKED), QC (pass / fail with reason → reprint), pack (progress, missing-item warning, label).
 - **Scanning:** `src/scanner/wedge.ts` tells scanner bursts from typing; a scan's Enter is swallowed so it can't click a focused button. Codes: `T:<transferId>`, `B:<blankVariantId>` or UPC, `BIN:<code>`.
 - **Offline:** every write goes to the Dexie outbox first (`src/outbox`), is sent in order and replayed on reconnect. Scans carry a `clientScanId`, so replays are idempotent. Offline press checks run against the cached queue and are marked provisional.
-- **Realtime:** fetch-based SSE on `/events?token=<floor session>` with backoff and `Last-Event-ID`.
+- **Realtime:** fetch-based SSE on `/events` with the floor session sent only as `Authorization: Bearer` (never in the URL), backoff and `Last-Event-ID`. A 401 on connect, or `event: unauthorized` on an open stream, signs the tablet out; it does not retry.
 - **Dev:** the scan icon (bottom right, `pnpm dev` or `?dev=1`) simulates a scan. `?demo=1` or "Try a demo station" uses the in-memory backend in `src/api/demo.ts` (PINs 1111, 1122 … 1177).
 
 ```

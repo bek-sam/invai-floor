@@ -53,7 +53,11 @@ export type SseOptions = {
   onStatus?: (s: SseStatus) => void;
   /** Called after a reconnect: events may have been missed, so refetch. */
   onReconnect?: () => void;
-  /** The server answered 401: the session ended or the tablet was unpaired. */
+  /**
+   * The session is gone for good: a 401 on connect, or `event: unauthorized` on an open stream
+   * (the server's periodic re-check found the session revoked). Called at most once; no more
+   * reconnects follow.
+   */
   onUnauthorized?: () => void;
   fetchImpl?: typeof fetch;
   minDelayMs?: number;
@@ -62,9 +66,13 @@ export type SseOptions = {
 
 /**
  * Server-Sent Events over fetch (not EventSource) so reconnects are ours and every retry can
- * send `Last-Event-ID`. The floor session goes in `?token=`, which the backend's /events
- * accepts; it's also sent as `Authorization: Bearer` for servers that prefer the header.
- * Reconnects with exponential backoff and jitter.
+ * send `Last-Event-ID`. The floor session goes only as `Authorization: Bearer`, never in the
+ * URL (B-31, S-30: a token in the query string ends up in proxy and access logs). The request
+ * URL is exactly `opts.url`, with no token-related query param added.
+ * Reconnects with exponential backoff and jitter, except: a 401 on connect, or an
+ * `event: unauthorized` on an open stream, means the session is gone (revoked station token,
+ * ended floor session or deactivated member) — the client stops for good and calls
+ * `onUnauthorized` once instead of retrying.
  */
 export function connectSse(opts: SseOptions): () => void {
   const fetchImpl = opts.fetchImpl ?? fetch.bind(globalThis);
@@ -83,11 +91,8 @@ export function connectSse(opts: SseOptions): () => void {
     controller = new AbortController();
     const headers: Record<string, string> = { Accept: "text/event-stream" };
     const token = opts.token();
-    let url = opts.url;
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      url += `${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
-    }
+    const url = opts.url;
+    if (token) headers.Authorization = `Bearer ${token}`;
     if (lastEventId) headers["Last-Event-ID"] = lastEventId;
     try {
       const res = await fetchImpl(url, {
@@ -95,7 +100,12 @@ export function connectSse(opts: SseOptions): () => void {
         signal: controller.signal,
         cache: "no-store",
       });
-      if (res.status === 401) opts.onUnauthorized?.();
+      if (res.status === 401) {
+        // The session is gone, not merely offline: stop for good, don't retry.
+        stopped = true;
+        opts.onUnauthorized?.();
+        return;
+      }
       if (!res.ok || !res.body) throw new Error(`SSE HTTP ${res.status}`);
       attempt = 0;
       opts.onStatus?.("open");
@@ -103,6 +113,12 @@ export function connectSse(opts: SseOptions): () => void {
       connectedOnce = true;
       const parser = new SseParser((m) => {
         if (m.id) lastEventId = m.id;
+        if (m.event === "unauthorized") {
+          // The server re-checked and the session no longer holds: stop for good.
+          stopped = true;
+          opts.onUnauthorized?.();
+          return;
+        }
         opts.onMessage(m);
       });
       const reader = res.body.getReader();
