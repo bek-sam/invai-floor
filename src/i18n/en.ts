@@ -245,6 +245,8 @@ export const en = {
     scanHint: "Scan the pressed shirt's transfer code",
     pass: "Pass",
     fail: "Fail",
+    passResult: "Passed",
+    failResult: "Failed",
     reasonTitle: "Why did it fail?",
     notFound: "This item isn't waiting for QC",
     passed: "Passed: order {{orderNo}}",

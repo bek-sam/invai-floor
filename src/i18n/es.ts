@@ -248,6 +248,8 @@ export const es: FloorStrings = {
     scanHint: "Escanea el código de la transferencia de la camisa prensada",
     pass: "Aprobar",
     fail: "Rechazar",
+    passResult: "Aprobado",
+    failResult: "Rechazado",
     reasonTitle: "¿Por qué falló?",
     notFound: "Esta pieza no está esperando control de calidad",
     passed: "Aprobado: pedido {{orderNo}}",

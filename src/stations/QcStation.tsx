@@ -142,8 +142,8 @@ export function QcStation() {
               view.error
                 ? t("floor.qc.notSaved")
                 : view.result === "pass"
-                  ? t("floor.qc.pass")
-                  : t("floor.qc.fail")
+                  ? t("floor.qc.passResult")
+                  : t("floor.qc.failResult")
             }
             reason={
               view.error ??
