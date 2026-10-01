@@ -43,8 +43,10 @@ export const es: FloorStrings = {
     lock: "Bloquear",
     update: "Actualizar app",
     switchStaff: "Cambiar",
-    pending_one: "{{count}} escaneo por sincronizar",
-    pending_other: "{{count}} escaneos por sincronizar",
+    // Short on purpose (B-241): with the "needs review" pill showing too, the long form wrapped
+    // to two lines at 1280x800. "{{count}} por enviar" reuses the outbox's own "enviar" word.
+    pending_one: "{{count}} por enviar",
+    pending_other: "{{count}} por enviar",
     synced: "Todo sincronizado",
     live: "En vivo",
     notLive: "Reconectando",
@@ -62,8 +64,11 @@ export const es: FloorStrings = {
     sessionExpired: "Tu sesión expiró. Ingresa tu PIN para sincronizar los escaneos guardados.",
   },
   outbox: {
-    parked_one: "{{count}} necesita revisión",
-    parked_other: "{{count}} necesitan revisión",
+    // Short on purpose (B-241): shown next to the "por enviar" pill, so it must fit on one line
+    // at 1280x800 too. The longer "necesita(n) revisión" stays in the detail sheet's own status
+    // line (`status.parked` below), where there's room.
+    parked_one: "{{count}} por revisar",
+    parked_other: "{{count}} por revisar",
     title: "Sin enviar",
     subtitle:
       "Los más viejos primero. Los que esperan se envían solos cuando el servidor responda.",

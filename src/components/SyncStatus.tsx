@@ -89,7 +89,7 @@ export function SyncStatus({ hideOnline = false }: { hideOnline?: boolean }) {
         )}
         {pending > 0 ? (
           <span
-            className="flex items-center gap-1 rounded-full bg-warning px-2 py-0.5 text-warning-foreground"
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-warning px-2 py-0.5 text-warning-foreground"
             data-testid="sync-pending"
           >
             <CloudUpload className="size-4" />
@@ -104,7 +104,7 @@ export function SyncStatus({ hideOnline = false }: { hideOnline?: boolean }) {
         ) : null}
         {parked > 0 ? (
           <span
-            className="flex items-center gap-1 rounded-full bg-danger px-2 py-0.5 text-danger-foreground"
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-danger px-2 py-0.5 text-danger-foreground"
             data-testid="sync-parked"
           >
             <CircleAlert className="size-4" />
