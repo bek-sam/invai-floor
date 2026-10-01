@@ -69,6 +69,40 @@ export function takeResolved(id: string): OutboxEntry | undefined {
   return entry;
 }
 
+/** Drops a scan's late-answer entry without reading it: the screen that would have shown it
+ * moved to a different scan or unmounted (T-P3-2 round 2, finding 2). */
+export function clearResolved(id: string): void {
+  useSyncStore.setState((s) => {
+    if (!(id in s.resolved)) return s;
+    const { [id]: _dropped, ...rest } = s.resolved;
+    return { resolved: rest };
+  });
+}
+
+/**
+ * How long an unconsumed `resolved` entry is kept. Press takes (clears) its own as soon as the
+ * panel reads it, win or lose; pick and pack never read `resolved` at all, so without a backstop
+ * their scans would sit in memory for the rest of the shift (T-P3-2 round 2, finding 2).
+ */
+const RESOLVED_TTL_MS = 2 * 60 * 1000;
+
+/** Drops any entry older than its own send/park time plus the TTL. Returns the same object
+ * (not a copy) when nothing changed, so a flush with nothing to prune doesn't force a render. */
+function pruneResolved(resolved: SyncState["resolved"]): SyncState["resolved"] {
+  const now = Date.now();
+  let changed = false;
+  const next: SyncState["resolved"] = {};
+  for (const [id, entry] of Object.entries(resolved)) {
+    const at = entry.sentAt ?? entry.parkedAt;
+    if (at && now - Date.parse(at) > RESOLVED_TTL_MS) {
+      changed = true;
+      continue;
+    }
+    next[id] = entry;
+  }
+  return changed ? next : resolved;
+}
+
 export type SubmitOutcome =
   | { status: "sent"; entry: OutboxEntry; result: unknown }
   | { status: "queued"; entry: OutboxEntry; reason: ApiFailure | null }
@@ -185,27 +219,25 @@ export class SyncEngine {
     const stop = report.stoppedBy;
     // A 429 means the server answered: it's busy, not unreachable.
     const reachable = !stop || (stop.kind !== "offline" && stop.kind !== "unavailable");
-    useSyncStore.setState((s) => ({
-      online: reachable && (typeof navigator === "undefined" || navigator.onLine),
-      lastFailure: stop
-        ? {
-            kind: stop.kind,
-            code: stop.code,
-            message: stop.message,
-            retryAfterSec: stop.retryAfterSec,
-          }
-        : null,
-      ...(report.sent > 0 ? { lastSyncAt: new Date().toISOString() } : {}),
-      ...(report.resolved.length > 0
-        ? {
-            resolved: (() => {
-              const next = { ...s.resolved };
-              for (const e of report.resolved) next[e.id] = e;
-              return next;
-            })(),
-          }
-        : {}),
-    }));
+    useSyncStore.setState((s) => {
+      const merged =
+        report.resolved.length > 0
+          ? { ...s.resolved, ...Object.fromEntries(report.resolved.map((e) => [e.id, e])) }
+          : s.resolved;
+      return {
+        online: reachable && (typeof navigator === "undefined" || navigator.onLine),
+        lastFailure: stop
+          ? {
+              kind: stop.kind,
+              code: stop.code,
+              message: stop.message,
+              retryAfterSec: stop.retryAfterSec,
+            }
+          : null,
+        ...(report.sent > 0 ? { lastSyncAt: new Date().toISOString() } : {}),
+        resolved: pruneResolved(merged),
+      };
+    });
     // Only the signed-in person's own sign-in ending locks the tablet; an older one doesn't.
     const current = this.opts.currentSession()?.token ?? null;
     const mineEnded = report.parked.some(

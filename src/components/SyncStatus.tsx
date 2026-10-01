@@ -52,7 +52,8 @@ import { useScan } from "../scanner/useWedgeScanner";
 
 /**
  * Online/offline, live-update state and the unsent count, in the header. Tapping it opens the
- * list of everything not sent yet. It also hosts the alert for offline scans the server refused.
+ * list of everything not sent yet. It also hosts the alert for queued scans the server refused
+ * on replay (offline, busy or any other reason the tablet had to save them for later).
  */
 export function SyncStatus({ hideOnline = false }: { hideOnline?: boolean }) {
   const { t } = useTranslation();

@@ -589,6 +589,31 @@ describe("sync engine", () => {
     expect(useSyncStore.getState().resolved.c1).toBeUndefined();
     engine.stop();
   });
+
+  it("drops an unconsumed resolved entry after its TTL, so pick/pack scans don't pile up over a shift", async () => {
+    const engine = new SyncEngine({
+      send: async (command) => {
+        const id = command.kind === "scan" ? command.input.clientScanId : "";
+        return { ok: true, clientScanId: id };
+      },
+      db,
+      currentSession: () => null,
+    });
+    const out = await engine.submit(scan("T:1", "c1"), ana);
+    expect(out.status).toBe("sent");
+    const before = useSyncStore.getState().resolved.c1;
+    expect(before).toBeDefined();
+    // Pick and pack never call `takeResolved`: without a backstop this would sit here all shift.
+    useSyncStore.setState((s) => ({
+      resolved: {
+        ...s.resolved,
+        c1: { ...(before as OutboxEntry), sentAt: new Date(Date.now() - 3 * 60_000).toISOString() },
+      },
+    }));
+    await engine.flush();
+    expect(useSyncStore.getState().resolved.c1).toBeUndefined();
+    engine.stop();
+  });
 });
 
 describe("contract version (T-13-1)", () => {

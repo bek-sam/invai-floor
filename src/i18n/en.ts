@@ -107,8 +107,10 @@ export const en = {
       other: "code {{code}}",
     },
     alert: {
-      title_one: "{{count}} offline scan was rejected",
-      title_other: "{{count}} offline scans were rejected",
+      // Not "offline scan": this also fires for a scan that was only busy (429), never offline
+      // (T-P3-2 round 2, finding 3).
+      title_one: "{{count}} queued scan was rejected",
+      title_other: "{{count}} queued scans were rejected",
       body: "Find these units and set them aside. The office can see them under Not sent yet.",
       ok: "OK",
       see: "See the list",

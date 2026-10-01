@@ -17,7 +17,7 @@ import {
 import { parseCode, transferIdOf } from "../lib/codes";
 import { feedback } from "../lib/feedback";
 import { uuid } from "../lib/uuid";
-import { takeResolved, useSyncStore } from "../outbox/sync";
+import { clearResolved, takeResolved, useSyncStore } from "../outbox/sync";
 import {
   initialPressState,
   type PressEvent,
@@ -137,20 +137,36 @@ export function PressStation() {
 
   // A busy (or offline) scan's server answer can arrive after this panel is already showing a
   // provisional/busy view for it: replace it with the real verdict, but only for the scan still
-  // on screen (T-P3-2 R1; `pressReducer` also re-checks the clientScanId itself).
+  // on screen (T-P3-2 R1; `pressReducer` also re-checks the clientScanId itself). `outbox.ts`
+  // publishes a live (online) send's own verdict here too, same as a replayed one -- `runCheck`
+  // already applied that result and beeped once, so this effect must not do it a second time
+  // (T-P3-2 round 2 finding 1). It still takes (clears) the entry either way, so a live scan's
+  // own resolution never sits in `resolved` unconsumed.
   const resultClientScanId = state.phase === "result" ? state.clientScanId : null;
+  const resultIsProvisional =
+    state.phase === "result" && (state.view.provisional || state.view.queued);
   const resolvedEntry = useSyncStore((sync) =>
     resultClientScanId ? sync.resolved[resultClientScanId] : undefined,
   );
   useEffect(() => {
     if (!resultClientScanId || !resolvedEntry) return;
     const entry = takeResolved(resultClientScanId);
+    if (!resultIsProvisional) return;
     if (entry?.command.kind !== "scan") return;
     if (entry.status !== "done" && entry.parkReason !== "blocked") return;
     const result = entry.result as ScanResult;
     applyRef.current({ type: "result", clientScanId: resultClientScanId, result });
     feedback(result.ok ? "ok" : "error");
-  }, [resultClientScanId, resolvedEntry]);
+  }, [resultClientScanId, resolvedEntry, resultIsProvisional]);
+
+  // Leaving this scan behind (Next, or a different transfer) before its late answer arrived --
+  // or leaving the station entirely -- means nobody will ever read it: drop it so it doesn't
+  // sit in memory for the rest of the shift (T-P3-2 round 2, finding 2).
+  useEffect(() => {
+    return () => {
+      if (resultClientScanId) clearResolved(resultClientScanId);
+    };
+  }, [resultClientScanId]);
 
   async function reportProblem(
     reason: Parameters<Parameters<typeof ReasonDialog>[0]["onPick"]>[0],

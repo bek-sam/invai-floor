@@ -111,8 +111,10 @@ export const es: FloorStrings = {
       other: "código {{code}}",
     },
     alert: {
-      title_one: "{{count}} escaneo sin conexión fue rechazado",
-      title_other: "{{count}} escaneos sin conexión fueron rechazados",
+      // No "sin conexión": esta alerta también sale para un escaneo que solo estuvo ocupado
+      // (429), nunca sin conexión (T-P3-2 ronda 2, hallazgo 3).
+      title_one: "{{count}} escaneo guardado fue rechazado",
+      title_other: "{{count}} escaneos guardados fueron rechazados",
       body: "Busca estas unidades y apártalas. La oficina las puede ver en Sin enviar.",
       ok: "Entendido",
       see: "Ver la lista",
@@ -193,7 +195,7 @@ export const es: FloorStrings = {
     provisional: "Verificado en la tableta sin conexión. El servidor lo confirmará.",
     queued: "Guardado sin conexión. Se verificará cuando vuelva la conexión.",
     busyProvisional: "Verificado en esta tableta. Ocupado — confirmando en {{n}} s.",
-    busyQueued: "Ocupado. Vuelve a intentarlo en {{n}} s.",
+    busyQueued: "Ocupado. Se verificará otra vez en {{n}} s.",
     unknownTransfer: "No está en la lista guardada. El servidor lo verificará.",
     rescan: "¿Prenda equivocada? Escanea la correcta para verificar otra vez.",
     problemTitle: "¿Qué pasa?",
