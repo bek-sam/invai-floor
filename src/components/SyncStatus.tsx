@@ -117,15 +117,17 @@ export function SyncStatus({ hideOnline = false }: { hideOnline?: boolean }) {
   );
 }
 
-/** A strip under the header while scans can't reach the server. */
+/** A strip under the header while scans can't reach the server, or the server is busy. */
 export function OfflineStrip() {
   const { t } = useTranslation();
   const { online, lastFailure } = useSyncStore();
-  if (online && lastFailure?.kind !== "unavailable") return null;
+  if (online && lastFailure?.kind !== "unavailable" && lastFailure?.kind !== "busy") return null;
   const text =
-    lastFailure?.kind === "unavailable"
-      ? t("floor.offline.unavailable", { code: lastFailure.code })
-      : t("floor.offline.banner");
+    lastFailure?.kind === "busy"
+      ? t("floor.offline.busy", { n: lastFailure.retryAfterSec ?? 3 })
+      : lastFailure?.kind === "unavailable"
+        ? t("floor.offline.unavailable", { code: lastFailure.code })
+        : t("floor.offline.banner");
   return (
     <div className="shrink-0 bg-warning px-4 py-2 text-center text-lg font-bold text-warning-foreground">
       {text}

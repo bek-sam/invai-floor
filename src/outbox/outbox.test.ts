@@ -1,5 +1,5 @@
 import { CONTRACT_VERSION } from "@invai/contracts";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiFailure, classifyStatus } from "../api/errors";
 import type { ScanInput, ScanResult } from "../api/types";
 import { uuid } from "../lib/uuid";
@@ -19,7 +19,7 @@ import {
   sendAsMe,
   unresolvedEntries,
 } from "./outbox";
-import { SyncEngine, useSyncStore } from "./sync";
+import { SyncEngine, takeResolved, useSyncStore } from "./sync";
 
 const session = { sessionToken: "tok-a", staffName: "Ana" };
 
@@ -191,16 +191,39 @@ describe("parking: nothing jams the queue", () => {
     expect(calls).toBe(MAX_ATTEMPTS + 1);
   });
 
-  it.each([
-    [408, "TIMEOUT_408"],
-    [429, "RATE_LIMITED"],
-  ])("treats a %i like a 5xx (retry, then park)", async (status, code) => {
+  it("treats a 408 like a 5xx (retry, then park)", async () => {
     const send = async () => {
-      throw new ApiFailure("unavailable", code, "slow down", status);
+      throw new ApiFailure("unavailable", "TIMEOUT_408", "slow down", 408);
     };
     await enqueue(scan("T:1"), session, db);
     for (let i = 0; i < MAX_ATTEMPTS; i++) await flushOutbox(send, { db });
     expect((await rows())[0]).toMatchObject({ status: "parked", parkReason: "gave_up" });
+  });
+
+  it("classifies a 429 RATE_LIMITED as its own busy kind, not unavailable (T-P3-2)", () => {
+    expect(classifyStatus(429, "RATE_LIMITED")).toBe("busy");
+    const f = new ApiFailure("busy", "RATE_LIMITED", "slow down", 429, { retryAfterSec: 7 });
+    expect(f.retryable).toBe(true);
+    expect(f.retryAfterSec).toBe(7);
+    expect(
+      new ApiFailure("unavailable", "INTERNAL_SERVER_ERROR", "x", 500).retryAfterSec,
+    ).toBeNull();
+  });
+
+  it("a 429 never counts toward MAX_ATTEMPTS: it stays pending and never parks (T-P3-2)", async () => {
+    let calls = 0;
+    const send = async () => {
+      calls++;
+      throw new ApiFailure("busy", "RATE_LIMITED", "slow down", 429, { retryAfterSec: 5 });
+    };
+    await enqueue(scan("T:1"), session, db);
+    for (let i = 0; i < 20; i++) {
+      const r = await flushOutbox(send, { db });
+      expect(r.stoppedBy?.kind).toBe("busy");
+      expect(r.parked).toEqual([]);
+    }
+    expect((await rows())[0]).toMatchObject({ status: "pending", attempts: 0 });
+    expect(calls).toBe(20);
   });
 
   it("counts a timeout as an attempt, but not being offline", async () => {
@@ -252,6 +275,11 @@ describe("parking: nothing jams the queue", () => {
     expect(a).toMatchObject({ id: live.id, status: "done" });
     expect(b).toMatchObject({ status: "parked", parkReason: "blocked", errorCode: "item_on_hold" });
     expect((b?.result as ScanResult | undefined)?.orderNo).toBe("#1042");
+    // Both scans got a real verdict this flush: a panel still showing a provisional/busy view
+    // for either clientScanId can replace it (T-P3-2 AC3).
+    expect(r.resolved.map((e) => e.id).sort()).toEqual([live.id, replayed.id].sort());
+    const resolvedReplay = r.resolved.find((e) => e.id === replayed.id);
+    expect((resolvedReplay?.result as ScanResult | undefined)?.mismatch).toBe("item_on_hold");
   });
 
   it("prunes sent entries after a minute and never counts them", async () => {
@@ -499,6 +527,66 @@ describe("sync engine", () => {
     const out = await engine.submit(scan("T:1"), ana);
     expect(out.status).toBe("sent");
     expect(useSyncStore.getState().alerts).toEqual([]);
+    engine.stop();
+  });
+
+  it("a 429 stores retryAfterSec and reports reachable, not offline (T-P3-2)", async () => {
+    const engine = new SyncEngine({
+      send: async () => {
+        throw new ApiFailure("busy", "RATE_LIMITED", "slow down", 429, { retryAfterSec: 9 });
+      },
+      db,
+      currentSession: () => null,
+    });
+    await enqueue(scan("T:1"), session, db);
+    await engine.flush();
+    expect(useSyncStore.getState()).toMatchObject({
+      online: true,
+      lastFailure: { kind: "busy", code: "RATE_LIMITED", retryAfterSec: 9 },
+    });
+    engine.stop();
+  });
+
+  it("schedules the next retry from the server's retryAfterSec, not the outage backoff", async () => {
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    const engine = new SyncEngine({
+      send: async () => {
+        throw new ApiFailure("busy", "RATE_LIMITED", "slow down", 429, { retryAfterSec: 9 });
+      },
+      db,
+      currentSession: () => null,
+    });
+    await enqueue(scan("T:1"), session, db);
+    await engine.flush();
+    const delays = setTimeoutSpy.mock.calls.map((c) => c[1]);
+    expect(delays.at(-1)).toBe(9_000);
+    engine.stop();
+    setTimeoutSpy.mockRestore();
+  });
+
+  it("publishes a scan's late server answer so a panel can replace its provisional view", async () => {
+    let down = true;
+    const engine = new SyncEngine({
+      send: async (command) => {
+        if (down)
+          throw new ApiFailure("busy", "RATE_LIMITED", "slow down", 429, { retryAfterSec: 3 });
+        const id = command.kind === "scan" ? command.input.clientScanId : "";
+        return { ok: false, clientScanId: id, mismatch: "wrong_size" };
+      },
+      db,
+      currentSession: () => null,
+    });
+    const out = await engine.submit(scan("T:1", "c1"), ana);
+    expect(out.status).toBe("queued");
+    expect(useSyncStore.getState().resolved.c1).toBeUndefined();
+    down = false;
+    await engine.flush();
+    const resolved = useSyncStore.getState().resolved.c1;
+    expect(resolved).toMatchObject({ status: "parked", parkReason: "blocked" });
+    expect((resolved?.result as ScanResult | undefined)?.mismatch).toBe("wrong_size");
+    const taken = takeResolved("c1");
+    expect((taken?.result as ScanResult | undefined)?.mismatch).toBe("wrong_size");
+    expect(useSyncStore.getState().resolved.c1).toBeUndefined();
     engine.stop();
   });
 });

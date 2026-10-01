@@ -511,7 +511,12 @@ export function createDemoApi(): FloorApi {
       auth(token);
       const code = key.replace(/^demo\//, "");
       const design = DESIGNS.find((d) => d.code === code);
-      return svgDataUrl(design?.name ?? code, design?.color ?? "#64748b");
+      return {
+        url: svgDataUrl(design?.name ?? code, design?.color ?? "#64748b"),
+        // Matches the real backend's signed-download TTL (15 min) so the thumbnail cache's
+        // expiry handling behaves the same in demo mode.
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      };
     },
 
     async requestReprint(token, orderItemId) {

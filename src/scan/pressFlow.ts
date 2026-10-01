@@ -79,7 +79,15 @@ export function pressReducer(state: PressState, event: PressEvent): PressState {
     }
 
     case "result":
-      if (state.phase !== "checking" || state.clientScanId !== event.clientScanId) return state;
+      // Accepted from "checking" (the normal path) or from "result" itself: a busy/offline
+      // retry's late server answer replaces the provisional view it's still showing, but only
+      // for the same clientScanId -- a late answer for a scan the presser has moved past is
+      // ignored (T-P3-2 R1).
+      if (
+        (state.phase !== "checking" && state.phase !== "result") ||
+        state.clientScanId !== event.clientScanId
+      )
+        return state;
       return {
         phase: "result",
         transferCode: state.transferCode,

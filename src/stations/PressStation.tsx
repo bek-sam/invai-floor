@@ -17,6 +17,7 @@ import {
 import { parseCode, transferIdOf } from "../lib/codes";
 import { feedback } from "../lib/feedback";
 import { uuid } from "../lib/uuid";
+import { takeResolved, useSyncStore } from "../outbox/sync";
 import {
   initialPressState,
   type PressEvent,
@@ -52,6 +53,10 @@ export function PressStation() {
     setState(next);
     return next;
   };
+  // A stable handle to the latest `apply`, for effects that must not re-run just because this
+  // component re-rendered (`apply` itself is a new closure every render).
+  const applyRef = useRef(apply);
+  applyRef.current = apply;
 
   function findPreview(code: string): QueueItem | null {
     const id = transferIdOf(code);
@@ -78,11 +83,14 @@ export function PressStation() {
         apply({ type: "result", clientScanId: s.clientScanId, result });
         view = ref.current.phase === "result" ? ref.current.view : queuedView(s.preview);
       } else if (outcome.status === "queued") {
+        // A 429 means the server is reachable but busy, not offline: its own invariant still
+        // holds here -- the only "go" this can show is one the local check itself passed.
+        const retryAfterSec = outcome.reason?.kind === "busy" ? outcome.reason.retryAfterSec : null;
         const preview =
           s.preview ?? (await findCachedItem((i) => i.transferId === transferIdOf(s.transferCode)));
         view = preview
-          ? localPressCheck(preview, s.blankCode, await cachedBlanks())
-          : queuedView(null);
+          ? localPressCheck(preview, s.blankCode, await cachedBlanks(), retryAfterSec)
+          : queuedView(null, retryAfterSec);
         apply({ type: "local", clientScanId: s.clientScanId, view });
       } else {
         view = errorView("floor.error.rejected", refusalText(t, outcome.entry.errorCode));
@@ -126,6 +134,23 @@ export function PressStation() {
   useEffect(() => {
     if (state.phase === "result") nextBtn.current?.focus();
   }, [state.phase]);
+
+  // A busy (or offline) scan's server answer can arrive after this panel is already showing a
+  // provisional/busy view for it: replace it with the real verdict, but only for the scan still
+  // on screen (T-P3-2 R1; `pressReducer` also re-checks the clientScanId itself).
+  const resultClientScanId = state.phase === "result" ? state.clientScanId : null;
+  const resolvedEntry = useSyncStore((sync) =>
+    resultClientScanId ? sync.resolved[resultClientScanId] : undefined,
+  );
+  useEffect(() => {
+    if (!resultClientScanId || !resolvedEntry) return;
+    const entry = takeResolved(resultClientScanId);
+    if (entry?.command.kind !== "scan") return;
+    if (entry.status !== "done" && entry.parkReason !== "blocked") return;
+    const result = entry.result as ScanResult;
+    applyRef.current({ type: "result", clientScanId: resultClientScanId, result });
+    feedback(result.ok ? "ok" : "error");
+  }, [resultClientScanId, resolvedEntry]);
 
   async function reportProblem(
     reason: Parameters<Parameters<typeof ReasonDialog>[0]["onPick"]>[0],
@@ -334,11 +359,14 @@ function PressResult({
   onProblem: () => void;
 }) {
   const { t } = useTranslation();
+  const busy = view.busyRetryAfterSec;
   const title =
     view.tone === "ok"
       ? t("floor.press.ok")
       : view.tone === "warn"
-        ? t("floor.press.wait")
+        ? busy != null
+          ? t("floor.press.busy")
+          : t("floor.press.wait")
         : t("floor.press.blocked");
   const reason = view.reasonKey
     ? t(view.reasonKey.startsWith("floor.") ? view.reasonKey : `floor.${view.reasonKey}`)
@@ -399,10 +427,16 @@ function PressResult({
         )}
         {view.message && <p className="opacity-80">{view.message}</p>}
         {view.provisional && view.tone !== "warn" && (
-          <p className="mt-2 rounded-lg bg-black/15 px-4 py-2">{t("floor.press.provisional")}</p>
+          <p className="mt-2 rounded-lg bg-black/15 px-4 py-2">
+            {busy != null
+              ? t("floor.press.busyProvisional", { n: busy })
+              : t("floor.press.provisional")}
+          </p>
         )}
         {view.queued && view.tone === "warn" && (
-          <p className="mt-2 rounded-lg bg-black/10 px-4 py-2">{t("floor.press.queued")}</p>
+          <p className="mt-2 rounded-lg bg-black/10 px-4 py-2">
+            {busy != null ? t("floor.press.busyQueued", { n: busy }) : t("floor.press.queued")}
+          </p>
         )}
         {view.tone === "blocked" && !view.queued && BLANK_MISMATCHES.has(view.reasonKey ?? "") && (
           <p className="mt-2 opacity-90">{t("floor.press.rescan")}</p>

@@ -30,6 +30,12 @@ export type FlushReport = {
   parked: OutboxEntry[];
   /** Why the flush stopped early, leaving entries pending. */
   stoppedBy: ApiFailure | null;
+  /**
+   * Scans that got a real server verdict this flush (sent, or parked as `blocked`), carrying
+   * the `ScanResult`. A screen showing a provisional or busy view for one of these can replace
+   * it with the real one (T-P3-2: a busy retry's answer must still reach the press panel).
+   */
+  resolved: OutboxEntry[];
 };
 
 /** A 5xx, 408, 429 or timeout is retried with backoff this many times, then parked. */
@@ -100,8 +106,11 @@ function countsAsAttempt(failure: ApiFailure): boolean {
 /**
  * Replays pending commands strictly in insertion order.
  * - Offline (no network): stop, keep everything pending, don't count an attempt.
- * - 5xx, 408, 429, NOT_IMPLEMENTED or a timeout: stop and retry later with backoff; after
+ * - 5xx, 408, NOT_IMPLEMENTED or a timeout: stop and retry later with backoff; after
  *   `MAX_ATTEMPTS` in a row the entry is parked and the flush moves on.
+ * - 429 RATE_LIMITED (`busy`): stop, keep everything pending, don't count an attempt. The caller
+ *   retries using the server's `retryAfterSec`, not the outage backoff, and this never parks as
+ *   `gave_up` (T-P3-2): overload is not an error.
  * - Any other 4xx: parked at once, and the flush moves on.
  * - Sign-in ended (401): re-sent only under the same person's new session on the same
  *   station; otherwise parked. Never sent as whoever is signed in now.
@@ -125,7 +134,7 @@ export async function flushOutbox(
 ): Promise<FlushReport> {
   const db = opts.db ?? floorDb;
   const appVersion = opts.appVersion ?? CONTRACT_VERSION;
-  const report: FlushReport = { sent: 0, parked: [], stoppedBy: null };
+  const report: FlushReport = { sent: 0, parked: [], stoppedBy: null, resolved: [] };
   const pending = await db.outbox.where("status").equals("pending").sortBy("seq");
 
   const park = async (entry: OutboxEntry, reason: ParkReason, changes: Partial<OutboxEntry>) => {
@@ -154,9 +163,13 @@ export async function flushOutbox(
       const blocked = blockedReason(entry, result);
       if (blocked) {
         await park(entry, "blocked", { ...sent, errorCode: blocked, lastError: blocked });
+        if (entry.command.kind === "scan")
+          report.resolved.push(report.parked.at(-1) as OutboxEntry);
       } else {
         await db.outbox.update(seq, { ...sent, status: "done" });
         report.sent++;
+        if (entry.command.kind === "scan")
+          report.resolved.push({ ...entry, ...sent, status: "done" });
       }
     } catch (err) {
       const failure = toFailure(err);

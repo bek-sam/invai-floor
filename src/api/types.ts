@@ -48,8 +48,11 @@ export interface FloorApi {
    * are missing is a result (`packed: false`, `override: null`), like a BLOCKED scan, not an error.
    */
   packOrder(sessionToken: string, input: PackOrderInput): Promise<PackOrderResult>;
-  /** A signed URL for an S3 key (artwork thumbnails, label PDFs). */
-  fileUrl(sessionToken: string, key: string): Promise<string>;
+  /**
+   * A signed URL for an S3 key (artwork thumbnails, label PDFs), with when it expires, so a
+   * cache can drop it before the signed URL itself stops working (T-P3-2).
+   */
+  fileUrl(sessionToken: string, key: string): Promise<{ url: string; expiresAt: string }>;
   /** The printable label for an order, when one has been bought. */
   orderLabelUrl(sessionToken: string, orderId: string): Promise<string | null>;
   requestReprint(

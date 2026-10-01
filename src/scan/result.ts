@@ -27,6 +27,11 @@ export type ResultView = {
    * pick/press, never blocking. */
   transferAgeWarning: boolean;
   transferAgeDays: number | null;
+  /**
+   * Set when this (provisional or queued) view is sitting out a 429, not a real outage: the
+   * seconds the server asked us to wait. Never "offline" wording for this case (T-P3-2, B-237).
+   */
+  busyRetryAfterSec: number | null;
 };
 
 type BlankLike = { brand: string; style: string; color: string; size: string };
@@ -51,6 +56,7 @@ const EMPTY: Omit<ResultView, "tone"> = {
   queued: false,
   transferAgeWarning: false,
   transferAgeDays: null,
+  busyRetryAfterSec: null,
 };
 
 export function viewFromResult(r: ScanResult): ResultView {
@@ -71,6 +77,7 @@ export function viewFromResult(r: ScanResult): ResultView {
     queued: false,
     transferAgeWarning: r.transferAgeWarning ?? false,
     transferAgeDays: r.transferAgeDays ?? null,
+    busyRetryAfterSec: null,
   };
 }
 
@@ -89,19 +96,32 @@ export function viewFromPreview(p: QueueItem | null): Partial<ResultView> {
 }
 
 /**
- * The offline press check: compare the scanned blank label with the blank the cached queue
- * says this transfer needs. Only `B:<variantId>` labels can be checked here; anything else
- * (a UPC, a tote) waits for the server.
+ * The offline (or busy) press check: compare the scanned blank label with the blank the cached
+ * queue says this transfer needs. Only `B:<variantId>` labels can be checked here; anything else
+ * (a UPC, a tote) waits for the server. `busyRetryAfterSec` set means this is a 429, not a real
+ * outage: the caption says "busy", never "offline" (T-P3-2). Either way, a go state is only ever
+ * shown here because this check itself passed -- never a placeholder "ok".
  */
 export function localPressCheck(
   preview: QueueItem | null,
   blankCode: string,
   knownBlanks: QueueItem["blank"][] = [],
+  busyRetryAfterSec: number | null = null,
 ): ResultView {
-  const base = { ...EMPTY, ...viewFromPreview(preview), provisional: true, queued: true };
+  const base = {
+    ...EMPTY,
+    ...viewFromPreview(preview),
+    provisional: true,
+    queued: true,
+    busyRetryAfterSec,
+  };
   const code = parseCode(blankCode);
   if (!preview || code.kind !== "blank" || !/^[0-9a-f-]{36}$/i.test(code.value)) {
-    return { ...base, tone: "warn", reasonKey: "local.cannot_verify" };
+    return {
+      ...base,
+      tone: "warn",
+      reasonKey: busyRetryAfterSec != null ? "local.busy" : "local.cannot_verify",
+    };
   }
   if (code.value === preview.blank.variantId) return { ...base, tone: "ok" };
   const scanned = knownBlanks.find((b) => b.variantId === code.value) ?? null;
@@ -119,13 +139,17 @@ export function localPressCheck(
   };
 }
 
-export function queuedView(preview: QueueItem | null): ResultView {
+export function queuedView(
+  preview: QueueItem | null,
+  busyRetryAfterSec: number | null = null,
+): ResultView {
   return {
     ...EMPTY,
     ...viewFromPreview(preview),
     tone: "warn",
-    reasonKey: "local.queued",
+    reasonKey: busyRetryAfterSec != null ? "local.busy" : "local.queued",
     queued: true,
+    busyRetryAfterSec,
   };
 }
 

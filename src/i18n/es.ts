@@ -58,6 +58,7 @@ export const es: FloorStrings = {
   offline: {
     banner: "Sin conexión: los escaneos se guardan en la tableta y se sincronizarán",
     unavailable: "Servidor no listo ({{code}}): los escaneos se guardan y se reintentarán",
+    busy: "Ocupado: los escaneos se guardan y se reintentarán en {{n}} s",
     sessionExpired: "Tu sesión expiró. Ingresa tu PIN para sincronizar los escaneos guardados.",
   },
   outbox: {
@@ -186,10 +187,13 @@ export const es: FloorStrings = {
     ok: "PRENSAR",
     blocked: "BLOQUEADO",
     wait: "GUARDADO: REVISA LA ETIQUETA",
+    busy: "OCUPADO",
     hintTransferFirst: "Primero escanea el QR de la transferencia, luego la prenda",
     hintNextTransfer: "Listo. Escanea la siguiente transferencia",
     provisional: "Verificado en la tableta sin conexión. El servidor lo confirmará.",
     queued: "Guardado sin conexión. Se verificará cuando vuelva la conexión.",
+    busyProvisional: "Verificado en esta tableta. Ocupado — confirmando en {{n}} s.",
+    busyQueued: "Ocupado. Vuelve a intentarlo en {{n}} s.",
     unknownTransfer: "No está en la lista guardada. El servidor lo verificará.",
     rescan: "¿Prenda equivocada? Escanea la correcta para verificar otra vez.",
     problemTitle: "¿Qué pasa?",
@@ -222,6 +226,7 @@ export const es: FloorStrings = {
     cannot_verify: "No se puede verificar sin conexión",
     wrong_blank: "La prenda no coincide",
     queued: "Guardado sin conexión",
+    busy: "Ocupado",
   },
   error: {
     network: "Sin conexión",

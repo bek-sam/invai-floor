@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { QueueItem, ScanResult } from "../api/types";
 import { initialPressState, type PressEvent, type PressState, pressReducer } from "./pressFlow";
-import { localPressCheck, viewFromResult } from "./result";
+import { localPressCheck, queuedView, viewFromResult } from "./result";
 
 const VARIANT = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
@@ -144,6 +144,52 @@ describe("pressReducer", () => {
       provisional: true,
       queued: true,
     });
+  });
+
+  it("a busy retry's late answer replaces the provisional view it's still showing (T-P3-2 AC3)", () => {
+    let s = run([
+      scan("T:t1", "x", preview),
+      scan(`B:${VARIANT}`, "c1"),
+      { type: "local", clientScanId: "c1", view: localPressCheck(preview, `B:${VARIANT}`, [], 5) },
+    ]);
+    expect(s.phase === "result" && s.view).toMatchObject({ tone: "ok", busyRetryAfterSec: 5 });
+    s = run(
+      [
+        {
+          type: "result",
+          clientScanId: "c1",
+          result: result({ ok: false, mismatch: "wrong_size", message: "Needs L" }),
+        },
+      ],
+      s,
+    );
+    expect(s.phase === "result" && s.view).toMatchObject({
+      tone: "blocked",
+      reasonKey: "mismatch.wrong_size",
+    });
+  });
+
+  it("ignores a late answer for a scan the presser already moved past (T-P3-2 R1)", () => {
+    let s = run([
+      scan("T:t1", "x", preview),
+      scan(`B:${VARIANT}`, "c1"),
+      { type: "local", clientScanId: "c1", view: queuedView(preview, 5) },
+    ]);
+    const shown = s.phase === "result" && s.view;
+    // Moved on to a new scan on the same transfer before the busy retry answered.
+    s = run([scan(`B:${VARIANT}`, "c2")], s);
+    s = run(
+      [
+        {
+          type: "result",
+          clientScanId: "c1",
+          result: result({ ok: false, mismatch: "wrong_size" }),
+        },
+      ],
+      s,
+    );
+    expect(s).toMatchObject({ phase: "checking", clientScanId: "c2" });
+    expect(shown).toMatchObject({ busyRetryAfterSec: 5 });
   });
 });
 

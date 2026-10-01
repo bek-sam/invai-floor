@@ -121,11 +121,13 @@ export function createRpcApi(): FloorApi {
       }),
 
     fileUrl: (token, key) =>
-      call(
-        async () =>
-          (await client.files.downloadUrl({ fileKey: key, disposition: "inline" }, bearer(token)))
-            .url,
-      ),
+      call(async () => {
+        const r = await client.files.downloadUrl(
+          { fileKey: key, disposition: "inline" },
+          bearer(token),
+        );
+        return { url: r.url, expiresAt: r.expiresAt };
+      }),
 
     orderLabelUrl: (token, orderId) =>
       call(async () => {

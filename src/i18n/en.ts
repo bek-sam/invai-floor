@@ -55,6 +55,7 @@ export const en = {
   offline: {
     banner: "Offline: scans are saved on this tablet and will sync",
     unavailable: "Server not ready ({{code}}): scans are saved and will retry",
+    busy: "Busy: scans are saved and will retry in {{n}} s",
     sessionExpired: "Your session expired. Enter your PIN to sync saved scans.",
   },
   outbox: {
@@ -182,10 +183,13 @@ export const en = {
     ok: "PRESS",
     blocked: "BLOCKED",
     wait: "SAVED: CHECK LABEL",
+    busy: "BUSY",
     hintTransferFirst: "Scan the transfer QR first, then the blank",
     hintNextTransfer: "Done. Scan the next transfer",
     provisional: "Checked on this tablet while offline. The server will confirm.",
     queued: "Saved offline. It will be checked when the tablet is back online.",
+    busyProvisional: "Checked on this tablet. Busy — confirming in {{n}} s.",
+    busyQueued: "Busy. Checking again in {{n}} s.",
     unknownTransfer: "Not in the saved queue. The server will check it.",
     rescan: "Wrong blank? Scan the right one to check again.",
     problemTitle: "What's wrong?",
@@ -219,6 +223,7 @@ export const en = {
     cannot_verify: "Can't verify offline",
     wrong_blank: "Blank doesn't match",
     queued: "Saved offline",
+    busy: "Busy",
   },
   error: {
     network: "No connection",

@@ -19,12 +19,24 @@ export type SyncState = {
   pending: number;
   /** Parked entries waiting for a lead. With `pending`, the unresolved count on the badge. */
   parked: number;
-  lastFailure: { kind: FailureKind; code: string; message: string } | null;
+  lastFailure: {
+    kind: FailureKind;
+    code: string;
+    message: string;
+    /** Seconds the server asked us to wait, for a `busy` failure (RATE_LIMITED). */
+    retryAfterSec: number | null;
+  } | null;
   lastSyncAt: string | null;
   /** Entries saved offline that the server later refused; shown until someone taps OK. */
   alerts: OutboxEntry[];
   /** The problems sheet (opened from the sync badge or the alert). */
   sheetOpen: boolean;
+  /**
+   * Scans that got a server verdict since a screen last looked (keyed by `clientScanId`),
+   * so a panel still showing a provisional/busy view for one can replace it with the real
+   * result. `takeResolved` reads and clears one entry.
+   */
+  resolved: Record<string, OutboxEntry>;
 };
 
 export const useSyncStore = create<SyncState>(() => ({
@@ -35,6 +47,7 @@ export const useSyncStore = create<SyncState>(() => ({
   lastSyncAt: null,
   alerts: [],
   sheetOpen: false,
+  resolved: {},
 }));
 
 export function dismissAlerts() {
@@ -43,6 +56,17 @@ export function dismissAlerts() {
 
 export function setProblemsOpen(open: boolean) {
   useSyncStore.setState({ sheetOpen: open });
+}
+
+/** Reads and clears a scan's late server verdict, keyed by its `clientScanId`. */
+export function takeResolved(id: string): OutboxEntry | undefined {
+  const entry = useSyncStore.getState().resolved[id];
+  if (!entry) return undefined;
+  useSyncStore.setState((s) => {
+    const { [id]: _taken, ...rest } = s.resolved;
+    return { resolved: rest };
+  });
+  return entry;
 }
 
 export type SubmitOutcome =
@@ -159,12 +183,29 @@ export class SyncEngine {
     });
     this.lastStop = report.stoppedBy;
     const stop = report.stoppedBy;
+    // A 429 means the server answered: it's busy, not unreachable.
     const reachable = !stop || (stop.kind !== "offline" && stop.kind !== "unavailable");
-    useSyncStore.setState({
+    useSyncStore.setState((s) => ({
       online: reachable && (typeof navigator === "undefined" || navigator.onLine),
-      lastFailure: stop ? { kind: stop.kind, code: stop.code, message: stop.message } : null,
+      lastFailure: stop
+        ? {
+            kind: stop.kind,
+            code: stop.code,
+            message: stop.message,
+            retryAfterSec: stop.retryAfterSec,
+          }
+        : null,
       ...(report.sent > 0 ? { lastSyncAt: new Date().toISOString() } : {}),
-    });
+      ...(report.resolved.length > 0
+        ? {
+            resolved: (() => {
+              const next = { ...s.resolved };
+              for (const e of report.resolved) next[e.id] = e;
+              return next;
+            })(),
+          }
+        : {}),
+    }));
     // Only the signed-in person's own sign-in ending locks the tablet; an older one doesn't.
     const current = this.opts.currentSession()?.token ?? null;
     const mineEnded = report.parked.some(
@@ -187,11 +228,22 @@ export class SyncEngine {
       this.opts.onReplayRejected?.(rejected);
     }
     if (report.sent > 0 || report.parked.length > 0) this.opts.onSent?.();
-    this.schedule(stop?.retryable ?? false);
+    this.schedule(stop);
   }
 
-  private schedule(retrying: boolean) {
+  /**
+   * `busy` (429) retries after the server's own `retryAfterSec`, clamped to 1–60 s, and never
+   * grows the outage backoff: a rate limit is not an outage, so one busy reply shouldn't make
+   * the next *real* retry wait longer (T-P3-2).
+   */
+  private schedule(stop: ApiFailure | null) {
     if (this.timer) clearTimeout(this.timer);
+    if (stop?.kind === "busy") {
+      const secs = stop.retryAfterSec ?? 3;
+      this.timer = setTimeout(this.kick, Math.min(Math.max(secs, 1), 60) * 1000);
+      return;
+    }
+    const retrying = stop?.retryable ?? false;
     const delay = retrying ? this.backoffMs : 15_000;
     this.backoffMs = retrying ? Math.min(this.backoffMs * 2, 60_000) : 3_000;
     this.timer = setTimeout(this.kick, delay);
