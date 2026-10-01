@@ -86,7 +86,7 @@ test("offline scans replay in order; a server-rejected one is parked and alerted
 
   const alert = page.getByTestId("replay-alert");
   await expect(alert).toBeVisible({ timeout: 30_000 });
-  await expect(alert).toContainText("1 offline scan was rejected");
+  await expect(alert).toContainText("1 queued scan was rejected");
   await expect(alert).toContainText(`Order ${held.orderNo}`);
   await expect(alert).toContainText("Order on hold");
   await expect(page.getByTestId("sync-parked")).toContainText("1 needs a check");
