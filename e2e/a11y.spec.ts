@@ -105,7 +105,7 @@ for (const mode of ["light", "dark"] as Mode[])
       ).toBeVisible();
       await check(page, "station-press", lang, mode);
 
-      // The PRESS/BLOCKED result screen: an unknown transfer is blocked by the server.
+      // The BLOCKED result screen: an unknown transfer is blocked by the server.
       await page.getByRole("button", { name: /^(Simulate scan|Simular escaneo)$/ }).click();
       await page.getByTestId("simulate-scan").fill("T:00000000-0000-4000-8000-000000000000");
       await page.getByRole("button", { name: /^(Scan|Escanear)$/, exact: true }).click();
@@ -113,6 +113,31 @@ for (const mode of ["light", "dark"] as Mode[])
       await page.getByRole("button", { name: /^(Scan|Escanear)$/, exact: true }).click();
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await check(page, "result-blocked", lang, mode);
+      await expect(page.locator("[role=alert][data-tone]")).toHaveAttribute("data-tone", "blocked");
+
+      // The PRESS (green) result screen: a real queued transfer plus its right blank. A multi-unit
+      // order is preferred so press.spec.ts keeps its single-unit orders.
+      const login = await client(`Station ${token}`).floor.login({ pin: OWNER_PIN });
+      const floor = client(`Bearer ${login.sessionToken}`);
+      const queue = await floor.production.queue({ station: "press", limit: 100 });
+      let next: (typeof queue.items)[number] | undefined;
+      for (const i of queue.items) {
+        if (!i.transferId || !i.blank.variantId) continue;
+        const order = await floor.orders.get({ id: i.orderId });
+        if (order.items.filter((u) => u.state !== "cancelled").length > 1) {
+          next = i;
+          break;
+        }
+      }
+      expect(next, "a multi-unit order is waiting at the press").toBeTruthy();
+      await page.getByTestId("simulate-scan").fill(`T:${next?.transferId}`);
+      await page.getByRole("button", { name: /^(Scan|Escanear)$/, exact: true }).click();
+      await page.getByTestId("simulate-scan").fill(`B:${next?.blank.variantId}`);
+      await page.getByRole("button", { name: /^(Scan|Escanear)$/, exact: true }).click();
+      const pressed = page.locator("[role=alert][data-tone]");
+      await expect(pressed).toHaveAttribute("data-tone", "ok");
+      await expect(pressed).toContainText(/PRESS|PRENSAR/);
+      await check(page, "result-press", lang, mode);
 
       // QC, Pack and Pick through the station menu (the result screen has no list of its own).
       const stations: [string, RegExp, RegExp][] = [
