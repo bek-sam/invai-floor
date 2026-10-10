@@ -5,7 +5,7 @@
       "route": "station-press",
       "target": "ul",
       "reason": "A scrolling list on the press station cannot be reached with the keyboard (no tabindex and no focusable child). Ranked by product-designer.",
-      "backlog": "B-xxx"
+      "backlog": "B-330"
     }
   ]
 }
