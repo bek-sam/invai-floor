@@ -1,25 +1,3 @@
 {
-  "entries": [
-    {
-      "rule": "color-contrast",
-      "route": "station-press [dark]",
-      "target": ".bg-danger.py-0\\.5.text-danger-foreground",
-      "reason": "In dark mode the red badge (bg-danger with text-danger-foreground) on this queue row is below 4.5:1 contrast; same token as the web top-bar badge. Row position depends on the seeded queue. Found by T-34-5.",
-      "backlog": "B-347"
-    },
-    {
-      "rule": "color-contrast",
-      "route": "station-qc [dark]",
-      "target": ".bg-danger.py-0\\.5.text-danger-foreground",
-      "reason": "In dark mode the red badge (bg-danger with text-danger-foreground) on this queue row is below 4.5:1 contrast; same token as the web top-bar badge. Row position depends on the seeded queue. Found by T-34-5.",
-      "backlog": "B-348"
-    },
-    {
-      "rule": "color-contrast",
-      "route": "station-pick [dark]",
-      "target": ".bg-danger.text-danger-foreground.text-sm",
-      "reason": "In dark mode the red badge (bg-danger with text-danger-foreground) on this queue row is below 4.5:1 contrast; same token as the web top-bar badge. Row position depends on the seeded queue. Found by T-34-5.",
-      "backlog": "B-349"
-    }
-  ]
+  "entries": []
 }
