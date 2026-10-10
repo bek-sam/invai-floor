@@ -11,7 +11,8 @@
 # ---- build ---------------------------------------------------------------------------------
 FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
 WORKDIR /build
-RUN corepack enable
+# pnpm pinned with the tarball sha512 (same version as packageManager); corepack refuses a mismatch.
+RUN corepack enable && corepack prepare pnpm@12.6.0+sha512.3ef68f951cb111ac204b4a5a16f0b2ddf0da56a96e0413e81d855d9f0b55ef926714709028e1cd00c405c2c5fb7b9e8ec4dc46777c805d0373c2f2ff00fd20ec --activate
 # Contracts and UI ship TypeScript source: their own dependencies (zod, tw-animate-css, radix-ui,
 # ...) must resolve from their own node_modules during the Vite build.
 WORKDIR /build/invai-contracts
@@ -37,6 +38,10 @@ RUN sed -i 's/listen 80;/listen 8080;/' nginx.conf && grep -q 'listen 8080;' ngi
 
 # ---- runtime: nginx as uid 101, no server version in headers -------------------------------
 FROM nginxinc/nginx-unprivileged:alpine@sha256:b9241c6e7b8e9a862f129d8d4199ab64b10390949a78bdd5603379b32c844083
+# alpine 3.24.2's tiff 4.7.1-r0 has a HIGH CVE fixed in 4.7.2-r0; drop once the base digest has it.
+USER root
+RUN apk upgrade --no-cache tiff
+USER 101
 COPY --from=build /build/invai-floor/dist /usr/share/nginx/html
 COPY --from=build /build/invai-floor/nginx.conf /etc/nginx/conf.d/default.conf
 RUN echo 'server_tokens off;' > /etc/nginx/conf.d/00-server-tokens.conf
