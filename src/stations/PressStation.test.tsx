@@ -1,4 +1,4 @@
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type React from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiFailure } from "../api/errors";
@@ -57,6 +57,7 @@ vi.mock("../lib/feedback", () => ({ feedback: (...args: unknown[]) => feedbackMo
 import { setLang, setupI18n } from "../i18n";
 import { takeResolved, useSyncStore } from "../outbox/sync";
 import { emitScan } from "../scanner/bus";
+import { useWedgeListener } from "../scanner/useWedgeScanner";
 import { PressStation } from "./PressStation";
 
 const ITEM: QueueItem = {
@@ -172,5 +173,39 @@ describe("PressStation resolved entries (T-P3-2 round 2)", () => {
     expect(feedbackMock.mock.calls.map((c) => c[0])).toEqual(["tick", "warn", "error"]);
     expect(useSyncStore.getState().resolved[id]).toBeUndefined();
     expect(takeResolved(id)).toBeUndefined();
+  });
+
+  // T-33-4 AC 3: the queue list takes keyboard focus (B-330) without taking scans.
+  it("a focused queue list is labelled, keeps rows out of the tab order, and still gets wedge scans", async () => {
+    function Wedge() {
+      useWedgeListener();
+      return null;
+    }
+    const { getByRole, getAllByRole, findByText } = render(
+      <>
+        <Wedge />
+        <PressStation />
+      </>,
+    );
+    const list = getByRole("list", { name: "Up next" });
+    expect(list.getAttribute("tabindex")).toBe("0");
+    const rowButtons = getAllByRole("button").filter((b) => b.closest("li"));
+    expect(rowButtons.length).toBeGreaterThan(0);
+    for (const b of rowButtons) expect(b.getAttribute("tabindex")).toBe("-1");
+    let rowClicks = 0;
+    for (const b of rowButtons) b.addEventListener("click", () => rowClicks++);
+
+    list.focus();
+    expect(document.activeElement).toBe(list);
+    for (const key of ["T", ":", ...(ITEM.transferId ?? "").split("")]) {
+      fireEvent.keyDown(list, { key });
+    }
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    list.dispatchEvent(enter);
+
+    expect(enter.defaultPrevented).toBe(true); // the scan swallowed Enter
+    await findByText("Now scan the blank or tote label"); // the scan reached useScan
+    expect(rowClicks).toBe(0);
+    expect(document.activeElement).toBe(list); // nothing moved focus off the list
   });
 });

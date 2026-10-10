@@ -246,6 +246,7 @@ export const en = {
     skipTote: "No tote",
     binOccupied: "Tote {{bin}} holds order {{orderNo}}",
     left: "{{count}} to pick",
+    listTitle: "Blanks to pick",
   },
   qc: {
     title: "Quality check",
@@ -281,6 +282,7 @@ export const en = {
     title: "Pack",
     scanHint: "Scan a tote or an item to start an order",
     progress: "{{done}} of {{total}} items",
+    itemsList: "Items in this order",
     missing: "Missing items",
     markPacked: "Mark packed",
     checking: "Checking the order…",
@@ -328,6 +330,7 @@ export const en = {
     poUnknown: "No open purchase order {{code}}",
     poFinishFirst: "Finish {{poNo}} first, or tap Cancel",
     poLines: "{{count}} blanks ordered",
+    linesList: "Blanks on this order",
     poIn: "{{received}} of {{ordered}} in",
     expected: "Due {{date}}",
     ordered: "Ordered",

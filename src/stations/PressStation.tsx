@@ -7,6 +7,7 @@ import { submit } from "../app/actions";
 import { useSession } from "../app/store";
 import { ReasonDialog } from "../components/ProblemDialog";
 import { ResultPanel } from "../components/ResultPanel";
+import { SCROLL_FOCUS, scrollFocus } from "../components/scrollList";
 import { Thumbnail } from "../components/Thumbnail";
 import {
   cachedBlanks,
@@ -254,7 +255,10 @@ export function PressStation() {
         <h2 className="px-4 pt-3 text-lg font-bold uppercase text-muted-foreground">
           {t("floor.press.queueTitle")}
         </h2>
-        <ul className="flex-1 overflow-y-auto">
+        <ul
+          className={cn("flex-1 overflow-y-auto", SCROLL_FOCUS)}
+          {...scrollFocus(t("floor.press.queueTitle"))}
+        >
           {queue.items.length === 0 && !queue.loading && (
             <li className="p-6 text-center text-xl text-muted-foreground">
               {t("floor.common.empty")}

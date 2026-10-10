@@ -49,6 +49,7 @@ import {
 } from "../outbox/outbox";
 import { dismissAlerts, setProblemsOpen, useSyncStore } from "../outbox/sync";
 import { useScan } from "../scanner/useWedgeScanner";
+import { SCROLL_FOCUS, scrollFocus } from "./scrollList";
 
 /**
  * Online/offline, live-update state and the unsent count, in the header. Tapping it opens the
@@ -278,7 +279,10 @@ function ProblemsSheet() {
             {t("floor.outbox.allSynced")}
           </p>
         ) : (
-          <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+          <ul
+            className={cn("flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto", SCROLL_FOCUS)}
+            {...scrollFocus(t("floor.outbox.title"))}
+          >
             {entries.map((e) => {
               const parked = isParked(e);
               const unit = describeUnit(e, t);
@@ -420,7 +424,10 @@ function ReplayAlert() {
         <DialogDescription className="text-xl text-foreground">
           {t("floor.outbox.alert.body")}
         </DialogDescription>
-        <ul className="flex max-h-[40vh] flex-col gap-3 overflow-y-auto">
+        <ul
+          className={cn("flex max-h-[40vh] flex-col gap-3 overflow-y-auto", SCROLL_FOCUS)}
+          {...scrollFocus(t("floor.outbox.alert.title", { count: alerts.length }))}
+        >
           {alerts.map((e) => (
             <li key={e.id} className="rounded-xl bg-danger/10 p-4">
               <p className="text-2xl font-bold">{describeUnit(e, t) || describeWhat(e, t)}</p>

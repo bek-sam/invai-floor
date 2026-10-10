@@ -262,6 +262,7 @@ export const es: FloorStrings = {
     noMatch: "Ningún pedido de la lista necesita esta prenda",
     skipTote: "Sin caja",
     binOccupied: "La caja {{bin}} tiene el pedido {{orderNo}}",
+    listTitle: "Prendas por recoger",
     left: "{{count}} por recoger",
   },
   qc: {
@@ -298,6 +299,7 @@ export const es: FloorStrings = {
     title: "Empacar",
     scanHint: "Escanea una caja o una pieza para empezar un pedido",
     progress: "{{done}} de {{total}} piezas",
+    itemsList: "Piezas de este pedido",
     missing: "Piezas faltantes",
     markPacked: "Marcar empacado",
     checking: "Revisando el pedido…",
@@ -346,6 +348,7 @@ export const es: FloorStrings = {
     poUnknown: "No hay una orden de compra abierta {{code}}",
     poFinishFirst: "Termina {{poNo}} primero, o toca Cancelar",
     poLines: "{{count}} prendas pedidas",
+    linesList: "Prendas de este pedido",
     poIn: "{{received}} de {{ordered}} recibidas",
     expected: "Llega {{date}}",
     ordered: "Pedidas",

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { submit } from "../../app/actions";
 import { useApp } from "../../app/store";
 import { ResultPanel } from "../../components/ResultPanel";
+import { SCROLL_FOCUS, scrollFocus } from "../../components/scrollList";
 import { parseCode } from "../../lib/codes";
 import { feedback } from "../../lib/feedback";
 import { useScan } from "../../scanner/useWedgeScanner";
@@ -250,7 +251,10 @@ export function PoReceive() {
               <span className="text-right">{t("floor.receiving.alreadyIn")}</span>
               <span className="w-[16.5rem] text-center">{t("floor.receiving.now")}</span>
             </div>
-            <ul className="min-h-0 flex-1 overflow-y-auto">
+            <ul
+              className={cn("min-h-0 flex-1 overflow-y-auto", SCROLL_FOCUS)}
+              {...scrollFocus(t("floor.receiving.linesList"))}
+            >
               {po.lines.map((l) => {
                 const qty = draftQty(draft, l.id);
                 const isOver = qty > outstanding(l);
@@ -331,7 +335,10 @@ export function PoReceive() {
         <h2 className="px-4 pt-3 text-lg font-bold uppercase text-muted-foreground">
           {t("floor.receiving.tabPo")}
         </h2>
-        <ul className="flex-1 overflow-y-auto">
+        <ul
+          className={cn("flex-1 overflow-y-auto", SCROLL_FOCUS)}
+          {...scrollFocus(t("floor.receiving.tabPo"))}
+        >
           {pos.map((p) => {
             const ordered = p.lines.reduce((s, l) => s + l.qty, 0);
             const received = p.lines.reduce((s, l) => s + l.receivedQty, 0);

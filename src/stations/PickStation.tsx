@@ -6,6 +6,7 @@ import type { QueueItem, ScanResult } from "../api/types";
 import { submit } from "../app/actions";
 import { useSession } from "../app/store";
 import { ResultPanel } from "../components/ResultPanel";
+import { SCROLL_FOCUS, scrollFocus } from "../components/scrollList";
 import { invalidateQueues, useStationQueue } from "../hooks/useStationQueue";
 import { parseCode } from "../lib/codes";
 import { feedback } from "../lib/feedback";
@@ -146,7 +147,10 @@ export function PickStation() {
           {view.message.text}
         </p>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <section
+        className={cn("min-h-0 flex-1 overflow-y-auto", SCROLL_FOCUS)}
+        {...scrollFocus(t("floor.pick.listTitle"))}
+      >
         <table className="w-full text-left">
           <thead className="sticky top-0 bg-card text-sm uppercase text-muted-foreground">
             <tr>
@@ -210,7 +214,7 @@ export function PickStation() {
             )}
           </tbody>
         </table>
-      </div>
+      </section>
       <QueueFooter queue={queue} />
 
       {view.phase === "tote" && (

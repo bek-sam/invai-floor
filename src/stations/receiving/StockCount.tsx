@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { submit } from "../../app/actions";
 import { useApp } from "../../app/store";
 import { ResultPanel } from "../../components/ResultPanel";
+import { SCROLL_FOCUS, scrollFocus } from "../../components/scrollList";
 import { feedback } from "../../lib/feedback";
 import { useScan } from "../../scanner/useWedgeScanner";
 import { BlankChips, Prompt } from "../common";
@@ -162,7 +163,10 @@ export function StockCount() {
             <span className="text-right">{t("floor.receiving.difference")}</span>
             <span />
           </div>
-          <ul className="min-h-0 flex-1 overflow-y-auto">
+          <ul
+            className={cn("min-h-0 flex-1 overflow-y-auto", SCROLL_FOCUS)}
+            {...scrollFocus(t("floor.receiving.tabCount"))}
+          >
             {rows.map((r) => (
               <li
                 key={r.blankVariantId}
@@ -238,7 +242,10 @@ export function StockCount() {
       <Dialog open={picking} onOpenChange={setPicking}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-hidden p-6">
           <DialogTitle className="text-3xl">{t("floor.receiving.pickBlank")}</DialogTitle>
-          <ul className="max-h-[70vh] overflow-y-auto">
+          <ul
+            className={cn("max-h-[70vh] overflow-y-auto", SCROLL_FOCUS)}
+            {...scrollFocus(t("floor.receiving.pickBlank"))}
+          >
             {stock.map((s) => (
               <li key={s.blankVariantId}>
                 <button

@@ -16,6 +16,7 @@ import type { PackOrderResult, QueueItem, ScanResult } from "../api/types";
 import { submit } from "../app/actions";
 import { useApp, useSession } from "../app/store";
 import { ResultPanel } from "../components/ResultPanel";
+import { SCROLL_FOCUS, scrollFocus } from "../components/scrollList";
 import { Thumbnail } from "../components/Thumbnail";
 import { findCachedItem, invalidateQueues, useStationQueue } from "../hooks/useStationQueue";
 import { parseCode, transferIdOf } from "../lib/codes";
@@ -430,7 +431,10 @@ export function PackStation() {
                 style={{ width: `${total ? (scannedCount / total) * 100 : 0}%` }}
               />
             </div>
-            <ul className="min-h-0 flex-1 overflow-y-auto">
+            <ul
+              className={cn("min-h-0 flex-1 overflow-y-auto", SCROLL_FOCUS)}
+              {...scrollFocus(t("floor.pack.itemsList"))}
+            >
               {active.items.map((i) => {
                 const ok = active.scanned.has(i.orderItemId);
                 return (
@@ -496,7 +500,10 @@ export function PackStation() {
         <h2 className="px-4 pt-3 text-lg font-bold uppercase text-muted-foreground">
           {t("floor.press.queueTitle")}
         </h2>
-        <ul className="flex-1 overflow-y-auto">
+        <ul
+          className={cn("flex-1 overflow-y-auto", SCROLL_FOCUS)}
+          {...scrollFocus(t("floor.press.queueTitle"))}
+        >
           {[...orders.entries()].map(([orderId, items]) => (
             <li key={orderId}>
               <button

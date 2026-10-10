@@ -66,6 +66,33 @@ for (const lang of LANGS) {
       page.getByText(/^(Scan the transfer QR|Escanea el QR de la transferencia)$/),
     ).toBeVisible();
     await check(page, "station-press", lang);
+
+    // The PRESS/BLOCKED result screen: an unknown transfer is blocked by the server.
+    await page.getByRole("button", { name: /^(Simulate scan|Simular escaneo)$/ }).click();
+    await page.getByTestId("simulate-scan").fill("T:00000000-0000-4000-8000-000000000000");
+    await page.getByRole("button", { name: /^(Scan|Escanear)$/, exact: true }).click();
+    await page.getByTestId("simulate-scan").fill("B:00000000-0000-4000-8000-000000000001");
+    await page.getByRole("button", { name: /^(Scan|Escanear)$/, exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await check(page, "result-blocked", lang);
+
+    // QC, Pack and Pick through the station menu (the result screen has no list of its own).
+    const stations: [string, RegExp, RegExp][] = [
+      [
+        "station-qc",
+        /^(Quality check|Control de calidad)$/,
+        /Scan the pressed shirt|Escanea el código de la transferencia/,
+      ],
+      ["station-pack", /^(Pack|Empacar)$/, /Scan a tote or an item|Escanea una caja o una pieza/],
+      ["station-pick", /^(Pick|Recoger)$/, /Scan a blank label|Escanea la etiqueta de una prenda/],
+    ];
+    for (const [route, menuName, ready] of stations) {
+      await page.getByRole("button", { name: /^(Settings|Ajustes)$/ }).click();
+      await page.getByRole("menuitem", { name: menuName }).click();
+      await expect(page.getByRole("menu")).toHaveCount(0);
+      await expect(page.getByText(ready).first()).toBeVisible();
+      await check(page, route, lang);
+    }
   });
 }
 

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { submit } from "../../app/actions";
 import { useApp } from "../../app/store";
 import { ResultPanel } from "../../components/ResultPanel";
+import { SCROLL_FOCUS, scrollFocus } from "../../components/scrollList";
 import { invalidateQueues } from "../../hooks/useStationQueue";
 import { transferIdOf } from "../../lib/codes";
 import { feedback } from "../../lib/feedback";
@@ -205,7 +206,10 @@ export function SheetReceive() {
         <h2 className="px-4 pt-3 text-lg font-bold uppercase text-muted-foreground">
           {t("floor.receiving.tabSheets")}
         </h2>
-        <ul className="flex-1 overflow-y-auto">
+        <ul
+          className={cn("flex-1 overflow-y-auto", SCROLL_FOCUS)}
+          {...scrollFocus(t("floor.receiving.tabSheets"))}
+        >
           {sheets.map((s) => (
             <li key={s.id}>
               <button
