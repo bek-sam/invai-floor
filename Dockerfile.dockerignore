@@ -1,0 +1,29 @@
+# Allowlist: the context is the workspace root, so start from nothing.
+*
+!invai-contracts/package.json
+!invai-contracts/pnpm-lock.yaml
+!invai-contracts/pnpm-workspace.yaml
+!invai-contracts/tsconfig.json
+!invai-contracts/src
+!invai-ui/package.json
+!invai-ui/pnpm-lock.yaml
+!invai-ui/tsconfig.json
+!invai-ui/src
+!invai-floor
+# Never in an image, even under an allowed directory.
+**/node_modules
+**/.git
+**/.github
+**/.claude
+**/.env
+**/.env.*
+**/seed-output.json
+**/e2e
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/coverage
+**/dist
+**/.DS_Store
+**/*.log
+**/nginx.conf
