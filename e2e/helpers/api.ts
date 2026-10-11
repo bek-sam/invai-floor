@@ -7,6 +7,8 @@ import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
 
 export const API_URL = process.env.E2E_API_URL ?? "http://localhost:3000";
+export const FLOOR_ORIGIN = new URL(process.env.E2E_FLOOR_URL ?? "http://localhost:5174").origin;
+export const WEB_ORIGIN = new URL(process.env.E2E_WEB_URL ?? "http://localhost:5173").origin;
 const BACKEND = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../invai-backend",
@@ -21,7 +23,7 @@ export function client(authorization: string): ContractRouterClient<Contract> {
     url: `${API_URL}/rpc`,
     headers: {
       authorization,
-      origin: "http://localhost:5174",
+      origin: FLOOR_ORIGIN,
       [CONTRACT_VERSION_HEADER]: CONTRACT_VERSION,
     },
   });
@@ -48,7 +50,7 @@ export async function ownerClient(): Promise<ContractRouterClient<Contract>> {
   const cookie = () => [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
   const res = await fetch(`${API_URL}/api/auth/sign-in/email`, {
     method: "POST",
-    headers: { "content-type": "application/json", origin: "http://localhost:5173" },
+    headers: { "content-type": "application/json", origin: WEB_ORIGIN },
     body: JSON.stringify(OWNER),
   });
   if (!res.ok) throw new Error(`owner sign-in failed (${res.status})`);
@@ -58,7 +60,7 @@ export async function ownerClient(): Promise<ContractRouterClient<Contract>> {
     fetch: async (req, init) => {
       const headers = new Headers(init?.headers ?? (req instanceof Request ? req.headers : {}));
       headers.set("cookie", cookie());
-      headers.set("origin", "http://localhost:5173");
+      headers.set("origin", WEB_ORIGIN);
       const out = await fetch(req, { ...init, headers });
       remember(out);
       return out;
