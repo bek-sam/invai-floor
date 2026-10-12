@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { envUrl } from "./e2e/helpers/env-url";
 
 /**
  * Tablet E2E against the real stack: api :3000, worker, imaging :8000, floor :5174 and a seeded
@@ -18,7 +19,7 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never", outputFolder: "../.e2e-out/invai-floor/report" }]],
   outputDir: "../.e2e-out/invai-floor/results",
   use: {
-    baseURL: process.env.E2E_FLOOR_URL ?? "http://localhost:5174",
+    baseURL: envUrl("E2E_FLOOR_URL", "http://localhost:5174"),
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     viewport: { width: 1280, height: 800 },

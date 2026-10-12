@@ -10,6 +10,7 @@ import {
   unbaselined,
 } from "./a11y-core";
 import { client, OWNER_PIN, ownerClient, PRESSER_PIN } from "./helpers/api";
+import { envUrl } from "./helpers/env-url";
 
 /**
  * Axe (wcag2a, wcag2aa, wcag21aa) on the tablet screens in English and Spanish: pair this tablet,
@@ -65,7 +66,7 @@ async function check(page: Page, baseRoute: string, lang: Lang, mode: Mode) {
 
 async function modePage(browser: Browser, mode: Mode) {
   const context = await browser.newContext({
-    baseURL: process.env.E2E_FLOOR_URL ?? "http://localhost:5174",
+    baseURL: envUrl("E2E_FLOOR_URL", "http://localhost:5174"),
     viewport: { width: 1280, height: 800 },
     hasTouch: true,
     colorScheme: mode,
