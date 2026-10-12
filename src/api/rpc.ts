@@ -7,6 +7,26 @@ import { reportTooOld } from "../screens/UpdateNeededScreen";
 import { ApiFailure, toFailure } from "./errors";
 import type { FloorApi, PackOrderResult } from "./types";
 
+type DownloadItem = {
+  fileKey: string;
+  download: { url: string; expiresAt: string } | null;
+};
+
+/**
+ * Pair `files.downloadUrls` items with the keys asked for. Position and `fileKey` must both
+ * match; otherwise the whole batch fails (a thumbnail must never get another key's URL).
+ */
+export function alignDownloads(keys: string[], items: DownloadItem[]) {
+  if (items.length !== keys.length || items.some((it, i) => it.fileKey !== keys[i])) {
+    throw new ApiFailure("rejected", "BATCH_MISMATCH", "downloadUrls result does not match keys");
+  }
+  return items.map((it) =>
+    it.download
+      ? { fileKey: it.fileKey, url: it.download.url, expiresAt: it.download.expiresAt }
+      : null,
+  );
+}
+
 type Auth = { scheme: "Station" | "Bearer"; token: string };
 type Ctx = { auth?: Auth };
 
@@ -127,6 +147,15 @@ export function createRpcApi(): FloorApi {
           bearer(token),
         );
         return { url: r.url, expiresAt: r.expiresAt };
+      }),
+
+    fileUrls: (token, keys) =>
+      call(async () => {
+        const r = await client.files.downloadUrls(
+          { fileKeys: keys, disposition: "inline" },
+          bearer(token),
+        );
+        return alignDownloads(keys, r.items);
       }),
 
     orderLabelUrl: (token, orderId) =>

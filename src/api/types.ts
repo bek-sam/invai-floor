@@ -53,6 +53,14 @@ export interface FloorApi {
    * cache can drop it before the signed URL itself stops working (T-P3-2).
    */
   fileUrl(sessionToken: string, key: string): Promise<{ url: string; expiresAt: string }>;
+  /**
+   * Sign many keys in one call (`files.downloadUrls`). Result i belongs to `keys[i]`; null where
+   * that key has no URL (the single call would say NOT_FOUND). At most `MAX_DOWNLOAD_URLS` keys.
+   */
+  fileUrls(
+    sessionToken: string,
+    keys: string[],
+  ): Promise<Array<{ fileKey: string; url: string; expiresAt: string } | null>>;
   /** The printable label for an order, when one has been bought. */
   orderLabelUrl(sessionToken: string, orderId: string): Promise<string | null>;
   requestReprint(

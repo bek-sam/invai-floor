@@ -192,6 +192,17 @@ export function createDemoApi(): FloorApi {
     if (!user) throw new ApiFailure("auth", "UNAUTHORIZED", "Session expired", 401);
     return user;
   };
+  const signDemoFile = async (token: string, key: string) => {
+    auth(token);
+    const code = key.replace(/^demo\//, "");
+    const design = DESIGNS.find((d) => d.code === code);
+    return {
+      url: svgDataUrl(design?.name ?? code, design?.color ?? "#64748b"),
+      // Matches the real backend's signed-download TTL (15 min) so the thumbnail cache's
+      // expiry handling behaves the same in demo mode.
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    };
+  };
   const openUnits = (orderId: string) =>
     items.filter((i) => i.orderId === orderId && !i.cancelled && !boxed.has(i.orderItemId)).length;
 
@@ -507,16 +518,12 @@ export function createDemoApi(): FloorApi {
       return result;
     },
 
-    async fileUrl(token, key) {
-      auth(token);
-      const code = key.replace(/^demo\//, "");
-      const design = DESIGNS.find((d) => d.code === code);
-      return {
-        url: svgDataUrl(design?.name ?? code, design?.color ?? "#64748b"),
-        // Matches the real backend's signed-download TTL (15 min) so the thumbnail cache's
-        // expiry handling behaves the same in demo mode.
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-      };
+    fileUrl: signDemoFile,
+
+    async fileUrls(token, keys) {
+      return Promise.all(
+        keys.map(async (k) => ({ fileKey: k, ...(await signDemoFile(token, k)) })),
+      );
     },
 
     async requestReprint(token, orderItemId) {
