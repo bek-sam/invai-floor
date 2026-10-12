@@ -1,4 +1,4 @@
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import {
   describeFound,
   dumpIfAsked,
@@ -26,6 +26,14 @@ const found: Found[] = [];
 const scanned = new Set<string>();
 
 test.describe.configure({ mode: "serial" });
+
+// Every tablet context a test opens is closed after it. A paired tablet left open stays signed in
+// on its station and refetches its queue on every live update, all on Desert Bloom's per-company
+// `reads` budget, while offline.spec and press.spec run (gate 429, wave 36).
+const opened: BrowserContext[] = [];
+test.afterEach(async () => {
+  for (const c of opened.splice(0)) await c.close();
+});
 
 /**
  * The queue rows are seed- and state-dependent (row number, a state class that comes and goes), so
@@ -62,6 +70,7 @@ async function modePage(browser: Browser, mode: Mode) {
     hasTouch: true,
     colorScheme: mode,
   });
+  opened.push(context);
   return context.newPage();
 }
 
