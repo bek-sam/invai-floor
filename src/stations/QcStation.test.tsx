@@ -31,18 +31,22 @@ const queueState = {
 vi.mock("../hooks/useStationQueue", () => ({
   useStationQueue: () => queueState,
   invalidateQueues: vi.fn(),
+  removeFromQueues: vi.fn(),
+  findCachedItem: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("../app/store", () => ({
   useApp: (selector: (s: { api: unknown; session: null }) => unknown) =>
-    selector({ api: {}, session: null }),
+    selector({ api: { queue: (...a: unknown[]) => apiQueue(...a) }, session: null }),
 }));
 
 const submitMock = vi.fn();
+const apiQueue = vi.fn();
 vi.mock("../app/actions", () => ({ submit: (...args: unknown[]) => submitMock(...args) }));
 
 vi.mock("../lib/feedback", () => ({ feedback: vi.fn() }));
 
+import { findCachedItem, removeFromQueues } from "../hooks/useStationQueue";
 import { setLang, setupI18n } from "../i18n";
 import { emitScan } from "../scanner/bus";
 import { QcStation } from "./QcStation";
@@ -104,5 +108,29 @@ describe("QcStation result heading (B-222)", () => {
 
     const heading = await waitFor(() => getByRole("heading", { level: 1 }));
     expect(heading.textContent).toBe("Rechazado");
+  });
+
+  // T-57-4 A4.2: the lookup uses this tablet's copies first; the server is asked only on a miss.
+  it("finds a scanned item in the cached queues without a server read, and removes it after a pass", async () => {
+    queueState.items = [];
+    apiQueue.mockReset();
+    vi.mocked(removeFromQueues).mockClear();
+    vi.mocked(findCachedItem).mockResolvedValueOnce(ITEM);
+    submitMock.mockResolvedValue({ status: "sent", entry: {}, result: {} });
+    const { getByText } = render(<QcStation />);
+    emitScan(`T:${ITEM.transferId}`);
+    fireEvent.click(await waitFor(() => getByText("Aprobar")));
+    await waitFor(() => expect(removeFromQueues).toHaveBeenCalledWith([ITEM.orderItemId]));
+    expect(apiQueue).not.toHaveBeenCalled();
+  });
+
+  it("asks the server only when nothing local matches", async () => {
+    queueState.items = [];
+    apiQueue.mockReset();
+    apiQueue.mockResolvedValue({ items: [ITEM] });
+    const { getByText } = render(<QcStation />);
+    emitScan(`T:${ITEM.transferId}`);
+    await waitFor(() => getByText("Aprobar"));
+    expect(apiQueue).toHaveBeenCalledTimes(1);
   });
 });

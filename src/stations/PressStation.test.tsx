@@ -34,6 +34,7 @@ const queueState = {
 vi.mock("../hooks/useStationQueue", () => ({
   useStationQueue: () => queueState,
   invalidateQueues: vi.fn(),
+  removeFromQueues: vi.fn(),
   cachedBlanks: vi.fn().mockResolvedValue([]),
   findCachedItem: vi.fn().mockResolvedValue(null),
 }));
@@ -54,6 +55,7 @@ vi.mock("../app/actions", () => ({ submit: (...args: unknown[]) => submitMock(..
 const feedbackMock = vi.fn();
 vi.mock("../lib/feedback", () => ({ feedback: (...args: unknown[]) => feedbackMock(...args) }));
 
+import { removeFromQueues } from "../hooks/useStationQueue";
 import { setLang, setupI18n } from "../i18n";
 import { takeResolved, useSyncStore } from "../outbox/sync";
 import { emitScan } from "../scanner/bus";
@@ -135,6 +137,40 @@ describe("PressStation resolved entries (T-P3-2 round 2)", () => {
     // from the `resolved` entry the same send also published.
     expect(feedbackMock.mock.calls.map((c) => c[0])).toEqual(["tick", "error"]);
     expect(useSyncStore.getState().resolved[scanId()]).toBeUndefined();
+  });
+
+  // T-57-4 A4.2: a server-confirmed press drops the item at once; nothing else touches the list.
+  it("removes the item from the queues only when the server confirms the press", async () => {
+    const send = async (res: Partial<ScanResult>) => {
+      submitMock.mockResolvedValueOnce({
+        status: "sent",
+        entry: {},
+        result: { clientScanId: "x", orderNo: "#1042", ...res },
+      });
+      const view = render(<PressStation />);
+      emitScan(`T:${ITEM.transferId}`);
+      emitScan(`B:${ITEM.blank.variantId}x`);
+      await view.findByRole("heading", { level: 1 });
+      return view;
+    };
+    vi.mocked(removeFromQueues).mockClear();
+    await send({ ok: false, mismatch: "wrong_size", orderItemId: ITEM.orderItemId });
+    expect(removeFromQueues).not.toHaveBeenCalled();
+    cleanup();
+    await send({ ok: true, mismatch: null, orderItemId: ITEM.orderItemId });
+    expect(removeFromQueues).toHaveBeenCalledWith([ITEM.orderItemId]);
+    cleanup();
+    vi.mocked(removeFromQueues).mockClear();
+    submitMock.mockResolvedValueOnce({
+      status: "queued",
+      entry: { id: "p" },
+      reason: new ApiFailure("busy", "RATE_LIMITED", "slow down", 429, { retryAfterSec: 5 }),
+    });
+    const view = render(<PressStation />);
+    emitScan(`T:${ITEM.transferId}`);
+    emitScan("UPC:0000000000001");
+    await view.findByText("BUSY");
+    expect(removeFromQueues).not.toHaveBeenCalled();
   });
 
   it("still replaces a busy panel with the server's late verdict (AC3/R1 kept)", async () => {

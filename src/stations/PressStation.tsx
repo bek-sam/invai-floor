@@ -13,6 +13,7 @@ import {
   cachedBlanks,
   findCachedItem,
   invalidateQueues,
+  removeFromQueues,
   useStationQueue,
 } from "../hooks/useStationQueue";
 import { parseCode, transferIdOf } from "../lib/codes";
@@ -81,6 +82,9 @@ export function PressStation() {
       });
       if (outcome.status === "sent") {
         result = outcome.result as ScanResult;
+        // The server confirmed the press: the item is no longer pressable here, so the next one
+        // shows now with no read. A BLOCKED result changes nothing locally.
+        if (result.ok) removeFromQueues([result.orderItemId]);
         apply({ type: "result", clientScanId: s.clientScanId, result });
         view = ref.current.phase === "result" ? ref.current.view : queuedView(s.preview);
       } else if (outcome.status === "queued") {
@@ -103,7 +107,7 @@ export function PressStation() {
       apply({ type: "local", clientScanId: s.clientScanId, view });
     }
     feedback(view.tone === "ok" ? "ok" : view.tone === "warn" ? "warn" : "error");
-    invalidateQueues();
+    invalidateQueues({ reason: "own" });
   }
 
   function handle(code: string) {

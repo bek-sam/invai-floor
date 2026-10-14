@@ -29,7 +29,7 @@ export function useRealtime() {
       url: `${API_URL}${REALTIME_SSE_PATH}`,
       token: currentToken,
       onStatus: (live) => useApp.setState({ live }),
-      onReconnect: invalidateQueues,
+      onReconnect: () => invalidateQueues({ reason: "reconnect" }),
       onUnauthorized: () => void onAuthFailure(),
       onMessage: (m) => {
         if (QUEUE_EVENTS.has(m.event)) invalidateQueues();

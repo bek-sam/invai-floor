@@ -9,7 +9,12 @@ import { type FLOOR_REASONS, ReasonDialog } from "../components/ProblemDialog";
 import { ResultPanel } from "../components/ResultPanel";
 import { SCROLL_FOCUS, scrollFocus } from "../components/scrollList";
 import { Thumbnail } from "../components/Thumbnail";
-import { invalidateQueues, useStationQueue } from "../hooks/useStationQueue";
+import {
+  findCachedItem,
+  invalidateQueues,
+  removeFromQueues,
+  useStationQueue,
+} from "../hooks/useStationQueue";
 import { transferIdOf } from "../lib/codes";
 import { feedback } from "../lib/feedback";
 import { refusalText } from "../scan/result";
@@ -43,6 +48,8 @@ export function QcStation() {
     const match = (i: QueueItem) => i.transferId === id || i.orderItemId === id;
     const hit = queue.items.find(match);
     if (hit) return hit;
+    const cached = await findCachedItem(match).catch(() => null);
+    if (cached) return cached;
     try {
       return (await api.queue(token, "qc")).items.find(match) ?? null;
     } catch {
@@ -89,7 +96,8 @@ export function QcStation() {
         : null;
     feedback(error ? "error" : result === "pass" ? "ok" : "warn");
     setView({ phase: "done", item, result, queued: outcome?.status === "queued", error });
-    invalidateQueues();
+    if (outcome?.status === "sent") removeFromQueues([item.orderItemId]);
+    invalidateQueues({ reason: "own" });
   }
 
   return (

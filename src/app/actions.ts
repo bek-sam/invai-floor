@@ -48,7 +48,7 @@ export const engine = new SyncEngine({
   onAuthExpired: () => void onAuthFailure(),
   // The alert itself is on screen (SyncStatus); this is the sound.
   onReplayRejected: () => feedback("error"),
-  onSent: () => invalidateQueues(),
+  onSent: () => invalidateQueues({ reason: "own" }),
 });
 
 function sendCommand(command: OutboxCommand, token: string): Promise<unknown> {
