@@ -7,7 +7,7 @@ import { submit } from "../app/actions";
 import { useSession } from "../app/store";
 import { ResultPanel } from "../components/ResultPanel";
 import { SCROLL_FOCUS, scrollFocus } from "../components/scrollList";
-import { invalidateQueues, useStationQueue } from "../hooks/useStationQueue";
+import { invalidateQueues, removeFromQueues, useStationQueue } from "../hooks/useStationQueue";
 import { parseCode } from "../lib/codes";
 import { feedback } from "../lib/feedback";
 import { uuid } from "../lib/uuid";
@@ -75,6 +75,9 @@ export function PickStation() {
       return;
     }
     feedback("ok");
+    // Server-confirmed: the server accepts a repeat pick, so drop this unit now or the next scan
+    // of the same blank would pick it again instead of the next unit. Queued picks stay.
+    if (result?.ok) removeFromQueues([item.orderItemId]);
     if (item.binCode) setView({ phase: "done", item, bin: item.binCode, error: null });
     else setView({ phase: "tote", item, queued: outcome.status === "queued" });
     invalidateQueues();
